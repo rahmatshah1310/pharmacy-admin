@@ -40,6 +40,7 @@ const AuthContext = createContext<AuthContextValue>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const [user, setUser] = useState<AppUser | null>(null);
 	const [loading, setLoading] = useState<boolean>(true);
+	const [initialized, setInitialized] = useState<boolean>(false);
 
 	// Hydrate from localStorage immediately for snappy UI
 	useEffect(() => {
@@ -47,7 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const raw = typeof window !== "undefined" ? window.localStorage.getItem("pc_auth") : null;
 			if (raw) {
                 const parsed = JSON.parse(raw) as { user: AppUser; token?: string } | null;
-                if (parsed?.user) setUser(parsed.user);
+                if (parsed?.user) {
+					setUser(parsed.user);
+					setInitialized(true);
+				}
 			}
 		} catch {}
 		setLoading(true);
@@ -128,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				} catch {}
 			} finally {
 				setLoading(false);
+				setInitialized(true);
 			}
 		});
 		return () => unsub();
@@ -145,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 		
     return {
 			user,
-			loading,
+			loading: loading || !initialized,
 			isSuperAdmin,
 			isAdmin,
 			isUser,
@@ -155,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             adminId: user?.adminId ?? (isAdmin || isSuperAdmin ? user?.uid ?? null : null),
             pharmacyId: user?.pharmacyId ?? null,
 		};
-	}, [user, loading]);
+	}, [user, loading, initialized]);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
