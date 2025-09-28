@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getPharmacyByAdminUid, getAllPharmacies, createPharmacy, updatePharmacy } from "@/services/pharmacy.service";
+import { getPharmacyByAdminUid, getAllPharmacies, createPharmacy, updatePharmacy, deletePharmacyById } from "@/services/pharmacy.service";
 import { PharmacySchema } from "@/lib/schemas";
 
 export const usePharmacyByAdminUid = (adminUid: string | null) =>
@@ -43,3 +43,14 @@ export const useUpdatePharmacy = () => {
     },
   });
 };
+
+export const useDeletePharmacy = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pharmacyId: string) => deletePharmacyById(pharmacyId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pharmacies"] });
+    },
+  });
+};
+
