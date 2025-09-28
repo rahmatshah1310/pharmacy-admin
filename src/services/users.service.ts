@@ -213,3 +213,58 @@ export const updateUserWithTenantInfo = async (uid: string) => {
     handleServiceError(error, "Failed to update user with tenant info");
   }
 };
+
+// Get all admins (users with role 'admin' or 'super-admin')
+export const getAllAdmins = async () => {
+  try {
+    const col = firestore.collection(firestore.db, "users");
+    const q = firestore.query(col, firestore.where("role", "in", ["admin", "super-admin"]));
+    const snap = await firestore.getDocs(q);
+    let admins = snap.docs.map((d) => ({ _id: d.id, ...(d.data() as any) }));
+    
+    console.log("Admins from Firestore query:", admins);
+    
+    // Check if current user is super admin and not in the list
+    try {
+      if (typeof window !== "undefined") {
+        const authData = window.localStorage.getItem("pc_auth");
+        if (authData) {
+          const parsed = JSON.parse(authData);
+          const currentUser = parsed?.user;
+          console.log("Current user from localStorage:", currentUser);
+          
+          if (currentUser && currentUser.role === "super-admin") {
+            // Check if super admin is already in the list
+            const superAdminExists = admins.some(admin => admin._id === currentUser.uid);
+            console.log("Super admin exists in list:", superAdminExists);
+            
+            if (!superAdminExists) {
+              // Add super admin to the list
+              const superAdminData = {
+                _id: currentUser.uid,
+                email: currentUser.email,
+                displayName: currentUser.displayName,
+                name: currentUser.displayName,
+                role: "super-admin",
+                phone: currentUser.phone,
+                adminId: currentUser.adminId,
+                pharmacyId: currentUser.pharmacyId,
+                pharmacyName: currentUser.pharmacyName
+              };
+              admins.unshift(superAdminData);
+              console.log("Added super admin to list:", superAdminData);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.log("Could not check current user for super admin status:", error);
+    }
+    
+    console.log("Final admins list:", admins);
+    return { success: true, data: { admins } } as const;
+  } catch (error) {
+    console.error("Error fetching admins:", error);
+    handleServiceError(error, "Failed to fetch admins");
+  }
+};
