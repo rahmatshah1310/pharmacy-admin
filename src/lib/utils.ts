@@ -103,19 +103,38 @@ export function exportToCSV(rows: Array<Record<string, any>>, filename: string =
 
 export function printHTML(html: string, title: string = 'Print') {
   try {
-    const win = window.open('', '_blank', 'noopener,noreferrer')
-    if (!win) throw new Error('Popup blocked')
-    win.document.open()
-    win.document.write(`<!doctype html><html><head><title>${title}</title>
+    // Create a hidden iframe for printing instead of opening a new window
+    const iframe = document.createElement('iframe')
+    iframe.style.position = 'absolute'
+    iframe.style.left = '-9999px'
+    iframe.style.top = '-9999px'
+    iframe.style.width = '1px'
+    iframe.style.height = '1px'
+    iframe.style.border = 'none'
+    
+    document.body.appendChild(iframe)
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!iframeDoc) throw new Error('Failed to create iframe document')
+    
+    iframeDoc.open()
+    iframeDoc.write(`<!doctype html><html><head><title>${title}</title>
       <style>
         @page { margin: 8mm }
         body { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
       </style>
     </head><body>${html}</body></html>`)
-    win.document.close()
-    win.focus()
-    win.print()
-    win.close()
+    iframeDoc.close()
+    
+    // Wait for content to load, then print and cleanup
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow?.print()
+        setTimeout(() => {
+          document.body.removeChild(iframe)
+        }, 1000) // Remove iframe after printing
+      }, 100)
+    }
   } catch (err: any) {
     notify.error(err?.message || 'Failed to print')
   }
