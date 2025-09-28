@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -36,6 +36,26 @@ export default function SignupPage() {
     defaultValues: { name: "", email: "", password: "", confirmPassword: "" }
   })
 
+  // Auto-populate role for admins
+  React.useEffect(() => {
+    // This effect can be used for other admin-related setup if needed
+  }, []);
+
+  // Determine default role based on admin context
+  const getDefaultRole = () => {
+    try {
+      const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}");
+      if (adminInfo.role === "super-admin") {
+        return "admin"; // Super admin creates admins
+      } else if (adminInfo.role === "admin") {
+        return "user"; // Regular admin creates users
+      }
+    } catch (error) {
+      console.log("No admin info found");
+    }
+    return "user"; // Default to user if no admin context
+  };
+
   const onSubmit = async (values: SignupSchema) => {
     try {
       // Get admin information from localStorage (stored during admin login)
@@ -49,15 +69,19 @@ export default function SignupPage() {
         console.log("No admin info found in localStorage")
       }
       
+      // Determine role based on admin context
+      const defaultRole = getDefaultRole();
+      
       // Pass admin information from localStorage
       const signupData = {
         email: values.email,
         password: values.password,
         name: values.name,
-        role: "user" as const,
+        role: defaultRole as "admin" | "user",
         createdBy: adminInfo?.uid || null,
         adminId: adminInfo?.adminId || adminInfo?.uid || null,
         pharmacyId: adminInfo?.pharmacyId || null,
+        pharmacyName: adminInfo?.pharmacyName || null,
       }
       
       await signup(signupData)
@@ -87,9 +111,24 @@ export default function SignupPage() {
               try {
                 const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}")
                 if (adminInfo.uid) {
+                  const defaultRole = getDefaultRole();
+                  const roleText = defaultRole === "admin" ? "Admin" : "User";
+                  const roleColor = defaultRole === "admin" ? "text-blue-600 bg-blue-50" : "text-green-600 bg-green-50";
+                  const roleIcon = defaultRole === "admin" ? "👑" : "👤";
+                  
                   return (
-                    <div className="text-center text-sm text-green-600 bg-green-50 p-2 rounded-md">
-                      ✓ Admin context available - User will be created under your pharmacy
+                    <div className={`text-center text-sm ${roleColor} p-2 rounded-md`}>
+                      {roleIcon} Creating {roleText} for {adminInfo.displayName || adminInfo.email}
+                      {adminInfo.role === "super-admin" && (
+                        <div className="text-xs mt-1 opacity-75">
+                          Super Admin can create other Admins
+                        </div>
+                      )}
+                      {adminInfo.role === "admin" && (
+                        <div className="text-xs mt-1 opacity-75">
+                          Admin can create Users
+                        </div>
+                      )}
                     </div>
                   )
                 }
