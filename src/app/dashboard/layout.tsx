@@ -24,6 +24,8 @@ import { usePermissions } from "@/lib/usePermissions"
 import { useLogout } from "@/app/api/authApi"
 import { toast } from "react-toastify"
 import { usePharmacyByAdminUid } from "../api/pharmacy"
+import { NavigationSkeleton } from "@/components/skeletons/NavigationSkeleton"
+import { HeaderSkeleton } from "@/components/skeletons/HeaderSkeleton"
 
 const allNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, roles: ['admin', 'user'] },
@@ -57,6 +59,61 @@ export default function DashboardLayout({
     if (!user) return false;
     return item.roles.includes(user.role);
   })
+
+  // Show loading skeleton while authentication is loading
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Mobile sidebar skeleton */}
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" />
+          <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white">
+            <div className="h-0 flex-1 overflow-y-auto pt-5 pb-4">
+              <NavigationSkeleton />
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop sidebar skeleton */}
+        <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+          <div className="flex min-h-0 flex-1 flex-col bg-white border-r border-gray-200">
+            <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
+              <NavigationSkeleton />
+            </div>
+          </div>
+        </div>
+
+        {/* Main content skeleton */}
+        <div className="lg:pl-64 flex flex-col flex-1">
+          <HeaderSkeleton />
+          <main className="flex-1">
+            <div className="p-6">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-96 bg-gray-200 rounded animate-pulse" />
+                </div>
+                <div className="grid gap-6">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="space-y-4">
+                        <div className="h-6 w-32 bg-gray-200 rounded animate-pulse" />
+                        <div className="space-y-3">
+                          <div className="h-4 w-full bg-gray-200 rounded animate-pulse" />
+                          <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    )
+  }
 
   // Protect dashboard: redirect unauthenticated users
   if (!loading && !user) {
