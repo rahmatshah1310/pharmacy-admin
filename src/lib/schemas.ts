@@ -13,6 +13,7 @@ export const signupSchema = z.object({
 	password: z.string().min(6, "Password must be at least 6 characters"),
 	username: z.string().optional(),
 	role: z.enum(["admin", "user"]).optional(),
+	pharmacyName: z.string().optional(),
 });
 
 export type SignupSchema = z.infer<typeof signupSchema>;
@@ -30,6 +31,7 @@ export const userSchema = z.object({
   createdBy: z.string().optional(),
   adminId: z.string().optional(),
   pharmacyId: z.string().optional(),
+  pharmacyName: z.string().optional(),
   disabled: z.boolean().optional().default(false),
   permissions: z.record(z.string(), z.boolean()).optional(),
 });
