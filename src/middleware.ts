@@ -37,35 +37,55 @@ import type { NextRequest } from "next/server";
 
 /**
  * Role-based middleware:
- * - /dashboard/settings*  => only super-admin
- * - /dashboard*           => admin, user, super-admin
+ * - /dashboard/settings*  => super-admin, admin, user
+ * - /dashboard/pharmacies* => only super-admin
+ * - /dashboard*           => admin, user (super-admin restricted to pharmacies and settings)
  *
- * Order matters: check the more-specific "/dashboard/settings" first.
+ * Order matters: check the more-specific routes first.
  */
 export function middleware(req: NextRequest) {
   const role = req.cookies.get("pc_role")?.value || "";
   const url = req.nextUrl.clone();
   const path = url.pathname;
 
-  // ----- Settings: allow super-admin and admin -----
-  if (path.startsWith("/dashboard/settings")) {
-    if (role !== "super-admin" && role !== "admin") {
-      // if user has any role (is authenticated) but not allowed -> send to dashboard
-      // otherwise -> send to login
+  // ----- Pharmacies: only super-admin -----
+  if (path.startsWith("/dashboard/pharmacies")) {
+    if (role !== "super-admin") {
       url.pathname = role ? "/dashboard" : "/login";
       return NextResponse.redirect(url);
     }
     return NextResponse.next();
   }
 
-  // ----- General dashboard: admin, user, super-admin -----
-  if (path.startsWith("/dashboard")) {
-    const allowedDashboard = ["super-admin", "admin", "user"];
-    if (!allowedDashboard.includes(role)) {
-      url.pathname = "/login";
+  // ----- Settings: allow super-admin, admin, and user -----
+  if (path.startsWith("/dashboard/settings")) {
+    if (role !== "super-admin" && role !== "admin" && role !== "user") {
+      url.pathname = role ? "/dashboard" : "/login";
       return NextResponse.redirect(url);
     }
     return NextResponse.next();
+  }
+
+  // ----- General dashboard routes: restrict super-admin to only pharmacies and settings -----
+  if (path.startsWith("/dashboard")) {
+    // Super admin can only access pharmacies and settings
+    if (role === "super-admin") {
+      // If super admin tries to access any other dashboard route, redirect to pharmacies
+      if (path !== "/dashboard/pharmacies" && path !== "/dashboard/settings") {
+        url.pathname = "/dashboard/pharmacies";
+        return NextResponse.redirect(url);
+      }
+    }
+    
+    // Regular access for admin and user
+    const allowedDashboard = ["admin", "user"];
+    if (role === "super-admin" || allowedDashboard.includes(role)) {
+      return NextResponse.next();
+    }
+    
+    // Not authenticated
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
   }
 
   // Not a dashboard route -> continue normally
