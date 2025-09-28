@@ -25,16 +25,17 @@ import { useLogout } from "@/app/api/authApi"
 import { toast } from "react-toastify"
 import { usePharmacyByAdminUid } from "../api/pharmacy"
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'POS System', href: '/dashboard/pos', icon: ShoppingCartIcon },
-  { name: 'Sales', href: '/dashboard/sales', icon: CurrencyDollarIcon },
-  { name: 'Inventory', href: '/dashboard/inventory', icon: CubeIcon },
-  { name: 'Purchases', href: '/dashboard/purchases', icon: TruckIcon },
-  { name: 'Suppliers', href: '/dashboard/suppliers', icon: UserGroupIcon },
-  { name: 'Return Products', href: '/dashboard/returns', icon: DocumentTextIcon },
-  { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon },
-  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
+const allNavigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'POS System', href: '/dashboard/pos', icon: ShoppingCartIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Sales', href: '/dashboard/sales', icon: CurrencyDollarIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Inventory', href: '/dashboard/inventory', icon: CubeIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Purchases', href: '/dashboard/purchases', icon: TruckIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Suppliers', href: '/dashboard/suppliers', icon: UserGroupIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Return Products', href: '/dashboard/returns', icon: DocumentTextIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Pharmacies', href: '/dashboard/pharmacies', icon: ArchiveBoxIcon, roles: ['super-admin'] },
+  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, roles: ['super-admin', 'admin', 'user'] },
 ]
 
 export default function DashboardLayout({
@@ -45,10 +46,17 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, loading } = useAuth()
-  const { getRoleDisplayName, isReadOnlyMode } = usePermissions()
+  const { user, loading, adminId } = useAuth()
+  const { getRoleDisplayName, isReadOnlyMode, isSuperAdmin, isAdmin, isUser } = usePermissions()
   const { mutateAsync: logout, isPending: isLoggingOut } = useLogout()
-  const { data: pharmacy } = usePharmacyByAdminUid(user?.uid || null)
+  const { data: pharmacy } = usePharmacyByAdminUid(adminId || null)
+  
+  
+  // Filter navigation based on user role
+  const navigation = allNavigation.filter(item => {
+    if (!user) return false;
+    return item.roles.includes(user.role);
+  })
 
   // Protect dashboard: redirect unauthenticated users
   if (!loading && !user) {
@@ -69,7 +77,7 @@ export default function DashboardLayout({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
               </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">PharmaCare</span>
+              <span className="ml-2 text-xl font-bold text-gray-900">{pharmacy?.name || 'PharmaCare'}</span>
             </div>
             <button
               type="button"
@@ -131,7 +139,7 @@ export default function DashboardLayout({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
               </svg>
             </div>
-            <span className="ml-2 text-xl font-bold text-gray-900">{pharmacy?.name}</span>
+            <span className="ml-2 text-xl font-bold text-gray-900">{pharmacy?.name || 'PharmaCare'}</span>
           </div>
           <nav className="mt-8 flex-1 space-y-1 px-2">
             {navigation.map((item) => {
