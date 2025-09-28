@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listUsers, updateUser, disableUser, adminCreateUser } from "@/services/users.service";
+import { listUsers, updateUser, disableUser, adminCreateUser, getAllAdmins } from "@/services/users.service";
 
 export const useUsersQuery = () =>
   useQuery({
@@ -39,5 +39,14 @@ export const useDisableUser = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 };
+
+export const useAllAdmins = () =>
+  useQuery({
+    queryKey: ["admins"],
+    queryFn: async () => {
+      const res = await getAllAdmins();
+      return res.data.admins as any[];
+    },
+  });
 
 
