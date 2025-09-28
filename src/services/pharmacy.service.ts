@@ -52,7 +52,34 @@ export const getAllPharmacies = async () => {
     const col = firestore.collection(firestore.db, "pharmacies");
     const snap = await firestore.getDocs(col);
     const pharmacies = snap.docs.map((d) => ({ _id: d.id, ...(d.data() as any) }));
-    return { success: true, data: { pharmacies } } as const;
+    
+    // Fetch admin names for each pharmacy
+    const pharmaciesWithAdminNames = await Promise.all(
+      pharmacies.map(async (pharmacy) => {
+        try {
+          if (pharmacy.adminUid) {
+            const adminDoc = await firestore.getDoc(firestore.doc(firestore.db, "users", pharmacy.adminUid));
+            const adminData = adminDoc.exists() ? adminDoc.data() : null;
+            return {
+              ...pharmacy,
+              adminName: adminData?.displayName || adminData?.email || "Unknown Admin"
+            };
+          }
+          return {
+            ...pharmacy,
+            adminName: "No Admin Assigned"
+          };
+        } catch (error) {
+          console.error(`Error fetching admin for pharmacy ${pharmacy._id}:`, error);
+          return {
+            ...pharmacy,
+            adminName: "Unknown Admin"
+          };
+        }
+      })
+    );
+    
+    return { success: true, data: { pharmacies: pharmaciesWithAdminNames } } as const;
   } catch (error) {
     handleServiceError(error, "Failed to fetch pharmacies");
   }
@@ -83,3 +110,11 @@ export const updatePharmacy = async (id: string, data: any) => {
     handleServiceError(error, "Failed to update pharmacy");
   }
 };
+
+export const deletePharmacyById = async (pharmacyId: string) => {
+  const ref = doc(db, "pharmacies", pharmacyId);
+  await deleteDoc(ref as any);
+  return { success: true } as const;
+};
+
+
