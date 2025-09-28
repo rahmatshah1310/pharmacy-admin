@@ -27,6 +27,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import DeleteSaleModal from "@/components/modal/sales/DeleteSaleModal";
+import { useAuth } from "@/lib/authContext";
+import { usePermissions } from "@/lib/usePermissions";
 
 export default function SalesPage() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,6 +43,13 @@ export default function SalesPage() {
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<{ id: string; total: number } | null>(null);
+
+  // Auth and permissions
+  const { user } = useAuth();
+  const { isAdmin, isSuperAdmin } = usePermissions();
+  
+  // Only admin users can delete sales (not super admin, not regular users)
+  const canDeleteSales = isAdmin && !isSuperAdmin;
 
   const { data: salesData, isLoading: salesLoading, error: salesError } = useGetAllSales(
     currentPage, 
@@ -276,6 +285,7 @@ export default function SalesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>S.No</TableHead>
                 <TableHead>Sale ID</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Customer</TableHead>
@@ -295,8 +305,13 @@ export default function SalesPage() {
                   if (sortOrder === 'asc') return av < bv ? -1 : av > bv ? 1 : 0
                   return av > bv ? -1 : av < bv ? 1 : 0
                 })
-                .map((sale) => (
+                .map((sale, index) => (
                 <TableRow key={sale._id}>
+                  <TableCell>
+                    <div className="text-center font-medium">
+                      {index + 1}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div>
                       <p className="font-medium">#{sale._id.slice(-8)}</p>
@@ -356,14 +371,16 @@ export default function SalesPage() {
                         <option value="completed">Completed</option>
                         <option value="refunded">Refunded</option>
                       </Select>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => handleDeleteSale(sale._id, sale.total)}
-                        disabled={deleteSaleMutation.isPending}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
+                      {canDeleteSales && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleDeleteSale(sale._id, sale.total)}
+                          disabled={deleteSaleMutation.isPending}
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
