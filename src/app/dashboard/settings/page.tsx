@@ -24,40 +24,44 @@ import { useAdminCreateUser } from "@/app/api/users"
 import CurrentUserModal from "@/components/modal/settings/CurrentUserModal"
 
 export default function SettingsPage() {
-  const { user } = useAuth()
-  const {isAdmin}=usePermissions()
+  const { user, adminId } = useAuth()
+  const { isSuperAdmin, isAdmin } = usePermissions()
   const { isReadOnlyMode, getRoleDisplayName } = usePermissions()
   const { data: settings, isLoading } = useSettingsQuery()
   const { mutateAsync: updateSettings, isPending } = useUpdateSettings()
-  const canManageUsers = user?.role === "admin"
+  const canManageUsers = isSuperAdmin || isAdmin
   const { data: allUsers = [] } = useAllUsers()
   
   // Get pharmacy information for the current admin
-  const { data: pharmacy } = usePharmacyByAdminUid(user?.uid || null)
+  const { data: pharmacy } = usePharmacyByAdminUid(adminId || null)
   
-  // Filter users to show only those belonging to current admin's pharmacy
+  // Filter users to show based on role
   const users = (() => {
-    try {
-      // Get admin info from localStorage
-      const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}")
-      const currentAdminId = adminInfo.uid
-      const currentPharmacyId = adminInfo.pharmacyId
-      
-      if (!currentAdminId) {
-        // If no admin info, return empty array
-        return []
+    if (isSuperAdmin) {
+      // Super admin sees all users and admins
+      return allUsers.filter((user: any) => user.role === "user" || user.role === "admin");
+    } else if (isAdmin) {
+      // Regular admin sees only users from their pharmacy
+      try {
+        const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}");
+        const currentAdminId = adminInfo.uid;
+        const currentPharmacyId = adminInfo.pharmacyId;
+        
+        if (!currentAdminId) {
+          return [];
+        }
+        
+        return allUsers.filter((user: any) => {
+          return (user.createdBy === currentAdminId || user.adminId === currentAdminId) &&
+                 (user.pharmacyId === currentPharmacyId || !user.pharmacyId) &&
+                 user.role === "user"; // Only show users, not other admins
+        });
+      } catch (error) {
+        console.error("Error filtering users:", error);
+        return [];
       }
-      
-      // Filter users by adminId and pharmacyId
-      return allUsers.filter((user: any) => {
-        // Show users created by this admin or belonging to this pharmacy
-        return (user.createdBy === currentAdminId || user.adminId === currentAdminId) &&
-               (user.pharmacyId === currentPharmacyId || !user.pharmacyId) // Include users without pharmacyId for backward compatibility
-      })
-    } catch (error) {
-      console.error("Error filtering users:", error)
-      return []
     }
+    return [];
   })()
   // Removed saveUser as add-user flow is no longer supported
   const { mutateAsync: updateUser, isPending: updatingUser } = useUpdateUser()
@@ -142,23 +146,23 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Organization Name</label>
-              <Input placeholder="e.g. PharmaCare Pharmacy" {...form.register("organizationName")} disabled={!isAdmin} />
+              <Input placeholder="e.g. PharmaCare Pharmacy" {...form.register("organizationName")} disabled={!isSuperAdmin && !isAdmin} />
               {form.formState.errors.organizationName && (
                 <p className="text-xs text-red-600 mt-1">{form.formState.errors.organizationName.message}</p>
               )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Address</label>
-              <Textarea rows={3} placeholder="Full address" {...form.register("address")} disabled={!isAdmin} />
+              <Textarea rows={3} placeholder="Full address" {...form.register("address")} disabled={!isSuperAdmin && !isAdmin} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Phone</label>
-                <Input placeholder="Contact number" {...form.register("phone")} disabled={!isAdmin} />
+                <Input placeholder="Contact number" {...form.register("phone")} disabled={!isSuperAdmin && !isAdmin} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Notification Email</label>
-                <Input type="email" placeholder="alerts@yourpharmacy.com" {...form.register("notificationEmail")} disabled={!isAdmin} />
+                <Input type="email" placeholder="alerts@yourpharmacy.com" {...form.register("notificationEmail")} disabled={!isSuperAdmin && !isAdmin} />
                 {form.formState.errors.notificationEmail && (
                   <p className="text-xs text-red-600 mt-1">{form.formState.errors.notificationEmail.message as string}</p>
                 )}
@@ -175,7 +179,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Currency</label>
-                <Input placeholder="e.g. USD, EUR" {...form.register("currency")} disabled={!isAdmin} />
+                <Input placeholder="e.g. USD, EUR" {...form.register("currency")} disabled={!isSuperAdmin && !isAdmin} />
                 {form.formState.errors.currency && (
                   <p className="text-xs text-red-600 mt-1">{form.formState.errors.currency.message}</p>
                 )}
@@ -191,13 +195,30 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Low Stock Threshold</label>
-              <Input type="number" min="0" {...form.register("lowStockThreshold", { valueAsNumber: true })} disabled={!isAdmin} />
+              <Input type="number" min="0" {...form.register("lowStockThreshold", { valueAsNumber: true })} disabled={!isSuperAdmin && !isAdmin} />
               {form.formState.errors.lowStockThreshold && (
                 <p className="text-xs text-red-600 mt-1">{form.formState.errors.lowStockThreshold.message}</p>
               )}
             </div>
           </CardContent>
         </Card>
+
+        {/* Super Admin - Pharmacies Management */}
+        {isSuperAdmin && (
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Pharmacies Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              As a Super Admin, you can manage all pharmacies in the system.
+            </p>
+            <Button onClick={() => window.location.href = '/dashboard/pharmacies'}>
+              Manage Pharmacies
+            </Button>
+          </CardContent>
+        </Card>
+        )}
 
         {canManageUsers && (
         <Card className="lg:col-span-2">
@@ -208,16 +229,19 @@ export default function SettingsPage() {
             </div>
             <div className="text-sm text-gray-600">
               {(() => {
-                try {
-                  const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}")
-                  if (adminInfo.uid) {
-                    // Get pharmacy name from pharmacies collection or fallback to settings
-                    const pharmacyName = pharmacy?.name || settings?.organizationName || "Your Pharmacy"
-                    return `Showing ${users.length} user(s) from ${pharmacyName}`
+                if (isSuperAdmin) {
+                  return `Showing ${users.length} user(s) and admin(s) - Super Admin View`;
+                } else {
+                  try {
+                    const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}");
+                    if (adminInfo.uid) {
+                      const pharmacyName = pharmacy?.name || settings?.organizationName || "Your Pharmacy";
+                      return `Showing ${users.length} user(s) from ${pharmacyName}`;
+                    }
+                    return "No admin context found - Please log in as admin to manage users";
+                  } catch {
+                    return "No admin context found - Please log in as admin to manage users";
                   }
-                  return "No admin context found - Please log in as admin to manage users"
-                } catch {
-                  return "No admin context found - Please log in as admin to manage users"
                 }
               })()}
             </div>
@@ -293,9 +317,41 @@ export default function SettingsPage() {
           </Card>
         )}
 
+        {/* User - Read-only information */}
+        {user?.role === "user" && (
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Your Account Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              As a User, you can view your account information and use the POS and Sales systems.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-gray-500">Name</div>
+                <div className="text-sm text-gray-900">{user?.displayName || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Email</div>
+                <div className="text-sm text-gray-900">{user?.email || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Role</div>
+                <div className="text-sm text-gray-900">{user?.role || '-'}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">Pharmacy</div>
+                <div className="text-sm text-gray-900">{pharmacy?.name || 'Not assigned'}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        )}
+
         <div className="lg:col-span-2 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isPending || isLoading || !isAdmin}>Reset</Button>
-          <Button type="submit" disabled={isPending || isLoading || !isAdmin}>{isPending ? "Saving..." : "Save Settings"}</Button>
+          <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isPending || isLoading || (!isSuperAdmin && !isAdmin)}>Reset</Button>
+          <Button type="submit" disabled={isPending || isLoading || (!isSuperAdmin && !isAdmin)}>{isPending ? "Saving..." : "Save Settings"}</Button>
         </div>
       </form>
 
