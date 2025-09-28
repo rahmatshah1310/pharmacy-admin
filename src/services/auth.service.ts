@@ -24,6 +24,7 @@ export type SignupPayload = {
   createdBy?: string | null;
   adminId?: string | null;
   pharmacyId?: string | null;
+  pharmacyName?: string | null;
 };
 
 function getTenantMeta() {
@@ -48,7 +49,8 @@ export const signupUser = async ({
   role = "user",
   createdBy: providedCreatedBy,
   adminId: providedAdminId,
-  pharmacyId: providedPharmacyId
+  pharmacyId: providedPharmacyId,
+  pharmacyName: providedPharmacyName
 }: SignupPayload) => {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const user = cred.user;
@@ -61,6 +63,17 @@ export const signupUser = async ({
   const adminId = providedAdminId ?? localStorageAdminId;
   const pharmacyId = providedPharmacyId ?? localStoragePharmacyId;
   
+  // Get pharmacy name from admin info if not provided
+  let pharmacyName = providedPharmacyName;
+  if (!pharmacyName && typeof window !== "undefined") {
+    try {
+      const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}");
+      pharmacyName = adminInfo.pharmacyName || null;
+    } catch (error) {
+      console.log("No admin pharmacy info found");
+    }
+  }
+  
   await setDoc(doc(db, "users", user.uid), {
     uid: user.uid,
     email,
@@ -71,6 +84,7 @@ export const signupUser = async ({
     createdBy,
     adminId,
     pharmacyId,
+    pharmacyName,
   });
   return user;
 };
