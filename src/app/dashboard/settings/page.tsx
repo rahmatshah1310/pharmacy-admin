@@ -22,6 +22,7 @@ import EditUserModal from "@/components/modal/settings/EditUserModal"
 import AddUserModal from "@/components/modal/settings/AddUserModal"
 import { useAdminCreateUser } from "@/app/api/users"
 import CurrentUserModal from "@/components/modal/settings/CurrentUserModal"
+import { ContentSkeleton } from "@/components/skeletons/ContentSkeleton"
 
 export default function SettingsPage() {
   const { user, adminId } = useAuth()
@@ -104,6 +105,19 @@ export default function SettingsPage() {
     } catch (e: any) {
       toast.error(e?.message || "Failed to save settings")
     }
+  }
+
+  // Show loading skeleton while data is loading
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-600 mt-1">Manage organization preferences and system defaults.</p>
+        </div>
+        <ContentSkeleton />
+      </div>
+    );
   }
 
   return (
