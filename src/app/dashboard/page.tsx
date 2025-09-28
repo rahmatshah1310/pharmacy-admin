@@ -22,14 +22,14 @@ import { useAuth } from "@/lib/authContext"
 
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user, adminId } = useAuth()
   const { isAdmin, isUser, getRoleDisplayName, isReadOnlyMode } = usePermissions()
   const { data: products = [] } = useProductsQuery({})
   const { data: salesRecentRes } = useGetAllSales(1, 5)
   const recentSales = salesRecentRes?.data?.sales || []
   
   // Get pharmacy information for the current admin
-  const { data: pharmacy } = usePharmacyByAdminUid(user?.uid || null)
+  const { data: pharmacy } = usePharmacyByAdminUid(adminId || null)
 
   const totalInventoryValue = products.reduce((total, product) => {
     const quantity = product.currentStock || 0
