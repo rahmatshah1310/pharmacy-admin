@@ -26,14 +26,14 @@ import { toast } from "react-toastify"
 import { usePharmacyByAdminUid } from "../api/pharmacy"
 
 const allNavigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, roles: ['super-admin', 'admin', 'user'] },
-  { name: 'POS System', href: '/dashboard/pos', icon: ShoppingCartIcon, roles: ['super-admin', 'admin', 'user'] },
-  { name: 'Sales', href: '/dashboard/sales', icon: CurrencyDollarIcon, roles: ['super-admin', 'admin', 'user'] },
-  { name: 'Inventory', href: '/dashboard/inventory', icon: CubeIcon, roles: ['super-admin', 'admin', 'user'] },
-  { name: 'Purchases', href: '/dashboard/purchases', icon: TruckIcon, roles: ['super-admin', 'admin', 'user'] },
-  { name: 'Suppliers', href: '/dashboard/suppliers', icon: UserGroupIcon, roles: ['super-admin', 'admin', 'user'] },
-  { name: 'Return Products', href: '/dashboard/returns', icon: DocumentTextIcon, roles: ['super-admin', 'admin', 'user'] },
-  { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, roles: ['super-admin', 'admin', 'user'] },
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, roles: ['admin', 'user'] },
+  { name: 'POS System', href: '/dashboard/pos', icon: ShoppingCartIcon, roles: ['admin', 'user'] },
+  { name: 'Sales', href: '/dashboard/sales', icon: CurrencyDollarIcon, roles: ['admin', 'user'] },
+  { name: 'Inventory', href: '/dashboard/inventory', icon: CubeIcon, roles: ['admin', 'user'] },
+  { name: 'Purchases', href: '/dashboard/purchases', icon: TruckIcon, roles: ['admin', 'user'] },
+  { name: 'Suppliers', href: '/dashboard/suppliers', icon: UserGroupIcon, roles: ['admin', 'user'] },
+  { name: 'Return Products', href: '/dashboard/returns', icon: DocumentTextIcon, roles: ['admin', 'user'] },
+  { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, roles: ['admin', 'user'] },
   { name: 'Pharmacies', href: '/dashboard/pharmacies', icon: ArchiveBoxIcon, roles: ['super-admin'] },
   { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, roles: ['super-admin', 'admin', 'user'] },
 ]
