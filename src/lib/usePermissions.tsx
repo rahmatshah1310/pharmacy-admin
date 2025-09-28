@@ -8,15 +8,19 @@ export interface PermissionConfig {
   canCreate?: boolean;
   canView?: boolean;
   allowPOS?: boolean; // Special permission for POS operations
+  allowSales?: boolean; // Special permission for Sales operations
 }
 
 export const usePermissions = () => {
-  const { user, isAdmin, isUser, canEdit, canDelete, canCreate } = useAuth();
+  const { user, isSuperAdmin, isAdmin, isUser, canEdit, canDelete, canCreate } = useAuth();
 
   const hasPermission = (config: PermissionConfig): boolean => {
     if (!user) return false;
     
-    // Admin has all permissions
+    // Super Admin has all permissions
+    if (isSuperAdmin) return true;
+    
+    // Admin has most permissions (except super admin features)
     if (isAdmin) return true;
     
     // User permissions
@@ -27,8 +31,11 @@ export const usePermissions = () => {
       // Users can use POS with full functionality
       if (config.allowPOS) return true;
       
-      // Users cannot edit, delete, or create (except in POS)
-      if (config.canEdit || config.canDelete || config.canCreate) {
+      // Users can edit only POS and Sales
+      if (config.canEdit && (config.allowPOS || config.allowSales)) return true;
+      
+      // Users cannot delete or create (except in POS)
+      if (config.canDelete || config.canCreate) {
         return false;
       }
       
@@ -56,6 +63,7 @@ export const usePermissions = () => {
   };
 
   const getRoleDisplayName = (): string => {
+    if (isSuperAdmin) return 'Super Admin';
     if (isAdmin) return 'Admin';
     if (isUser) return 'User';
     return 'Guest';
@@ -67,6 +75,7 @@ export const usePermissions = () => {
 
   return {
     user,
+    isSuperAdmin,
     isAdmin,
     isUser,
     canEdit,
