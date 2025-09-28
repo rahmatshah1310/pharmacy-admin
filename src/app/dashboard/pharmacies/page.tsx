@@ -10,6 +10,7 @@ import { notify } from "@/lib/utils";
 import { useAuth } from "@/lib/authContext";
 import { usePermissions } from "@/lib/usePermissions";
 import { Select } from "@/components/ui/select";
+import { ContentSkeleton, TableSkeleton } from "@/components/skeletons/ContentSkeleton";
 export default function PharmaciesPage() {
   const { data: pharmacies = [], isLoading } = useAllPharmacies();
   const { data: admins = [], isLoading: adminsLoading } = useAllAdmins();
@@ -28,6 +29,19 @@ export default function PharmaciesPage() {
   console.log("Admins data:", admins);
   console.log("Admins loading:", adminsLoading);
   console.log("Current user:", user);
+
+  // Show loading skeleton while data is loading
+  if (isLoading || adminsLoading) {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Pharmacies</h1>
+          <p className="text-gray-600 mt-1">Manage pharmacies and their admins.</p>
+        </div>
+        <ContentSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
