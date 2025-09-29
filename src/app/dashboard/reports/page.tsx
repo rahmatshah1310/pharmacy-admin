@@ -221,8 +221,8 @@ export default function ReportsPage() {
   const liveSalesTotalOrders = salesStatsRes?.data?.total ?? sampleSalesData.totalOrders
 
   const filteredReports = sampleReports.filter(report => {
-    const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (report.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (report.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesType = selectedType === "all" || report.type === selectedType
     const matchesFrequency = selectedFrequency === "all" || report.frequency === selectedFrequency
