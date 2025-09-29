@@ -34,7 +34,7 @@ export default function LoginPage() {
     }
   }
 
-  // While auth state is resolving (e.g., right after signup), show loading
+  // // While auth state is resolving (e.g., right after signup), show loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
@@ -52,10 +52,10 @@ export default function LoginPage() {
   }
 
   // If already authenticated, send to dashboard
-  if (!loading && user) {
-    if (typeof window !== "undefined") router.replace("/dashboard")
-    return null
-  }
+  // if (!loading && user) {
+  //   if (typeof window !== "undefined") router.replace("/dashboard")
+  //   return null
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
