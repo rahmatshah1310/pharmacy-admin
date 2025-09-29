@@ -127,8 +127,14 @@ export default function DashboardPage() {
               {recentSales.map((sale: any) => (
                 <div key={sale._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="font-medium text-gray-900">{sale._id}</p>
-                    <p className="text-sm text-gray-600">{sale.customerId || 'Walk-in'}</p>
+                    <p className="font-medium text-gray-900">{sale.customerId || 'Walk-in Customer'}</p>
+                    <p className="text-sm text-gray-600">
+                      {sale.items && sale.items.length > 0 
+                        ? sale.items.slice(0, 2).map((item: any) => item.name).join(', ')
+                        : 'No items'
+                      }
+                      {sale.items && sale.items.length > 2 && ` +${sale.items.length - 2} more`}
+                    </p>
                     <p className="text-xs text-gray-500">{new Date(sale.createdAt).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
