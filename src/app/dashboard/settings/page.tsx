@@ -79,7 +79,7 @@ export default function SettingsPage() {
       organizationName: "",
       address: "",
       phone: "",
-      currency: "USD",
+      currency: "Rs.",
       lowStockThreshold: 10,
       notificationEmail: "",
     },
@@ -91,7 +91,7 @@ export default function SettingsPage() {
         organizationName: settings.organizationName || "",
         address: settings.address || "",
         phone: settings.phone || "",
-        currency: settings.currency || "USD",
+        currency: settings.currency || "Rs.",
         lowStockThreshold: Number(settings.lowStockThreshold ?? 10),
         notificationEmail: settings.notificationEmail || "",
       })
@@ -193,7 +193,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Currency</label>
-                <Input placeholder="e.g. USD, EUR" {...form.register("currency")} disabled={!isSuperAdmin && !isAdmin} />
+                <Input placeholder="e.g. Rs., USD, EUR" {...form.register("currency")} disabled={!isSuperAdmin && !isAdmin} />
                 {form.formState.errors.currency && (
                   <p className="text-xs text-red-600 mt-1">{form.formState.errors.currency.message}</p>
                 )}
