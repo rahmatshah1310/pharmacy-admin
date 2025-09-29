@@ -88,7 +88,7 @@ export const productSchema = z.object({
   maxStock: z.number().min(0),
   unitPrice: z.number().min(0),
   costPrice: z.number().min(0),
-  supplier: z.string().min(1, "Supplier is required"),
+  // supplier: z.string().min(1, "Supplier is required"),
   expiryDate: z.string().optional(),
   batchNumber: z.string().optional(),
   // Physical placement metadata
@@ -96,6 +96,44 @@ export const productSchema = z.object({
   location: z.string().optional(),
   status: z.enum(["active", "inactive", "discontinued"]),
 });
+
+export const purchaseSchema = z.object({
+  productId: z.string().min(1, "Product ID is required"),   // link to product
+  productName: z.string().min(1, "Product name is required"),
+  sku: z.string().optional(),
+  quantity: z.number().min(1, "Quantity must be greater than 0"),
+
+  unitCost: z.number().min(0, "Unit cost is required"),     // how much you pay supplier
+  totalCost: z.number().min(0),                             // qty * unitCost
+
+  // Batch & Expiry
+  batchNumber: z.string().optional(),
+  expiryDate: z.string().optional(),
+
+  // Category (for first-time product creation convenience)
+  categoryId: z.string().optional(),
+  categoryName: z.string().optional(),
+
+  // Supplier Info
+  supplierId: z.string().optional(),
+  supplierName: z.string().optional(),
+
+  // Invoice
+  invoiceNumber: z.string().optional(),
+  orderDate: z.string().min(1, "Order date is required"),
+  receivedAt: z.string().optional(),
+
+
+  // Audit fields
+  pharmacyId: z.string().min(1, "Pharmacy ID is required"),
+  adminId: z.string().min(1, "Admin ID is required"),
+  createdBy: z.string().min(1),
+  createdAt: z.string().min(1),
+  receivedBy: z.string().optional(),
+
+});
+
+
 export type ProductSchema = z.infer<typeof productSchema>;
 
 // Category schema
