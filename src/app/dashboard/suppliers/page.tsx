@@ -29,13 +29,12 @@ import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getSuppliers, createSupplier as createSupplierService, updateSupplier as updateSupplierService, deleteSupplier as deleteSupplierService } from "@/services/suppliers.service"
+import { useSuppliersQuery, useCreateSupplier as useCreateSupplierHook, useUpdateSupplier as useUpdateSupplierHook, useDeleteSupplier as useDeleteSupplierHook } from "@/app/api/suppliers"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { supplierSchema, type SupplierSchema } from "@/lib/schemas"
 import { z } from "zod"
-import { formatCurrency, exportToCSV, printElementById } from "@/lib/utils"
+import { formatCurrency, printElementById, exportElementToPDF } from "@/lib/utils"
 import { notify } from "@/lib/utils"
 import { useAuth } from "@/lib/authContext"
 
@@ -79,39 +78,10 @@ export default function SuppliersPage() {
   const [showDeleteSupplier, setShowDeleteSupplier] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
   const [mounted, setMounted] = useState(false)
-  const qc = useQueryClient()
-  const { data: suppliers = [], isLoading } = useQuery({
-    queryKey: ["suppliers", "all"],
-    queryFn: async () => {
-      const res = await getSuppliers()
-      // @ts-ignore
-      return res.data.suppliers || []
-    }
-  })
-  const { mutateAsync: createSupplier, isPending: creating } = useMutation({
-    mutationFn: (payload: SupplierSchema) => createSupplierService(payload as any),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["suppliers"] })
-      qc.invalidateQueries({ queryKey: ["suppliers", "all"] })
-      notify.success("Supplier created")
-    }
-  })
-  const { mutateAsync: updateSupplier, isPending: updating } = useMutation({
-    mutationFn: (payload: { id: string; data: SupplierSchema }) => updateSupplierService(payload.id, payload.data as any),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["suppliers"] })
-      qc.invalidateQueries({ queryKey: ["suppliers", "all"] })
-      notify.success("Supplier updated")
-    }
-  })
-  const { mutateAsync: deleteSupplier, isPending: deleting } = useMutation({
-    mutationFn: (id: string) => deleteSupplierService(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["suppliers"] })
-      qc.invalidateQueries({ queryKey: ["suppliers", "all"] })
-      notify.success("Supplier deleted")
-    }
-  })
+  const { data: suppliers = [], isLoading } = useSuppliersQuery(true)
+  const { mutateAsync: createSupplier, isPending: creating } = useCreateSupplierHook()
+  const { mutateAsync: updateSupplier, isPending: updating } = useUpdateSupplierHook()
+  const { mutateAsync: deleteSupplier, isPending: deleting } = useDeleteSupplierHook()
   const { register, handleSubmit, reset, formState: { errors } } = useForm<z.input<typeof supplierSchema>>({
     resolver: zodResolver(supplierSchema),
     defaultValues: {
@@ -312,9 +282,9 @@ export default function SuppliersPage() {
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Add Supplier
               </Button>
-              <Button variant="outline" onClick={() => exportToCSV(suppliers as any[], 'suppliers.csv')}>
+              <Button variant="outline" onClick={() => exportElementToPDF('suppliers-table', 'suppliers.pdf')}>
                 <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                Export
+                Export PDF
               </Button>
               <Button variant="outline" onClick={() => printElementById('suppliers-table', 'Suppliers')}>
                 <PrinterIcon className="h-4 w-4 mr-2" />
