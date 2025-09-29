@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getProducts, getSimpleProducts, createProduct, updateProduct, deleteProduct, listCategories, createCategory } from "@/services/products.service";
+import { getProducts, getSimpleProducts, updateProduct, deleteProduct, listCategories, createCategory } from "@/services/products.service";
 
 export const useProductsQuery = (params?: Parameters<typeof getProducts>[0]) =>
   useQuery({
@@ -12,15 +12,6 @@ export const useProductsQuery = (params?: Parameters<typeof getProducts>[0]) =>
     },
   });
 
-export const useCreateProduct = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: any) => createProduct(payload),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["products"] });
-    },
-  });
-};
 
 export const useUpdateProduct = () => {
   const qc = useQueryClient();
