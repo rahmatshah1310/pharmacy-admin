@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { productSchema, type ProductSchema } from "@/lib/schemas"
-import { useCreateProduct } from "@/app/api/products"
+import { useAddPurchaseProduct } from "@/app/api/purchases"
 import { notify } from "@/lib/utils"
 import ProductForm from "./ProductForm"
 
@@ -13,20 +13,17 @@ interface AddProductModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   categoriesList: any[]
-  suppliersList: any[]
   onAddCategory: (name: string) => Promise<any>
-  onAddSupplier: (name: string) => Promise<any>
 }
 
 export default function AddProductModal({
   open,
   onOpenChange,
   categoriesList,
-  suppliersList,
   onAddCategory,
-  onAddSupplier
+  
 }: AddProductModalProps) {
-  const { mutateAsync: createProduct, isPending: creating } = useCreateProduct()
+  const { mutateAsync: addPurchaseProduct, isPending: creating } = useAddPurchaseProduct()
   
   const form = useForm({
     resolver: zodResolver(productSchema),
@@ -41,7 +38,6 @@ export default function AddProductModal({
       maxStock: 0,
       unitPrice: 0,
       costPrice: 0,
-      supplier: "",
       expiryDate: "",
       batchNumber: "",
       location: "",
@@ -64,14 +60,30 @@ export default function AddProductModal({
       notify.error('SKU is required');
       return;
     }
-    if (!values.supplier) {
-      notify.error('Supplier is required');
-      return;
-    }
+    // if (!values.supplier) {
+    //   notify.error('Supplier is required');
+    //   return;
+    // }
     
     try {
-      const result = await createProduct(values as any)
-      notify.success('Product created')
+      await addPurchaseProduct({
+        name: values.name,
+        sku: values.sku,
+        category: values.category,
+        barcode: values.barcode,
+        description: values.description,
+        quantity: Number(values.currentStock || 0) || 0,
+        unitPrice: values.unitPrice,
+        costPrice: values.costPrice,
+        supplier: (values as any).supplier || null,
+        expiryDate: values.expiryDate || null,
+        batchNumber: values.batchNumber || null,
+        location: values.location || null,
+        row: (values as any).row || null,
+        status: values.status,
+        invoiceNumber: null,
+      })
+      notify.success('Product added and purchase recorded')
       onOpenChange(false)
       form.reset()
     } catch (error) {
@@ -92,9 +104,7 @@ export default function AddProductModal({
           form={form}
           onSubmit={handleSubmit}
           categoriesList={categoriesList}
-          suppliersList={suppliersList}
           onAddCategory={onAddCategory}
-          onAddSupplier={onAddSupplier}
           isSubmitting={creating}
           submitButtonText={creating ? 'Adding...' : 'Add Product'}
           onCancel={() => onOpenChange(false)}
