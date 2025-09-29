@@ -37,7 +37,7 @@ export const getSettings = async () => {
         organizationName: "PharmaCare Pharmacy",
         address: "",
         phone: "",
-        currency: "USD",
+        currency: "Rs.",
         taxRate: 0,
         lowStockThreshold: 10,
         notificationEmail: "",
