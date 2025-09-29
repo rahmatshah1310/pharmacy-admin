@@ -32,23 +32,13 @@ const firestore = {
 
 function getTenantMeta() {
   try {
-    if (typeof window === "undefined") {
-      console.log("getTenantMeta: window is undefined");
-      return { createdBy: null, adminId: null, pharmacyId: null } as const;
+    if (typeof window === "undefined") {      return { createdBy: null, adminId: null, pharmacyId: null } as const;
     }
-    const raw = window.localStorage.getItem("pc_auth");
-    console.log("getTenantMeta: raw localStorage:", raw);
-    if (!raw) {
-      console.log("getTenantMeta: no pc_auth in localStorage");
-      return { createdBy: null, adminId: null, pharmacyId: null } as const;
+    const raw = window.localStorage.getItem("pc_auth");    if (!raw) {      return { createdBy: null, adminId: null, pharmacyId: null } as const;
     }
-    const parsed = JSON.parse(raw) as { user?: { uid: string; adminId?: string | null; pharmacyId?: string | null } };
-    console.log("getTenantMeta: parsed data:", parsed);
-    const uid = parsed?.user?.uid ?? null;
+    const parsed = JSON.parse(raw) as { user?: { uid: string; adminId?: string | null; pharmacyId?: string | null } };    const uid = parsed?.user?.uid ?? null;
     const adminId = parsed?.user?.adminId ?? uid;
-    const pharmacyId = parsed?.user?.pharmacyId ?? null;
-    console.log("getTenantMeta: extracted values:", { createdBy: uid, adminId, pharmacyId });
-    return { createdBy: uid, adminId, pharmacyId } as const;
+    const pharmacyId = parsed?.user?.pharmacyId ?? null;    return { createdBy: uid, adminId, pharmacyId } as const;
   } catch (error) {
     console.error("getTenantMeta: error:", error);
     return { createdBy: null, adminId: null, pharmacyId: null } as const;
@@ -159,17 +149,10 @@ export const adminCreateUser = async (payload: { email: string; password: string
       adminId: createdBy,
       pharmacyId,
     };
-    const res: any = await callable(body);
-    console.log("Cloud Function response:", res);
-    console.log("Tenant info to add:", { createdBy, pharmacyId });
-    
+    const res: any = await callable(body);    
     // If user was created successfully, update the user document with tenant info
     if (res?.data?.uid) {
-      try {
-        console.log("Updating user with UID:", res.data.uid);
-        const updateResult = await updateUserTenantInfo(res.data.uid, createdBy, pharmacyId);
-        console.log("Update result:", updateResult);
-      } catch (updateError) {
+      try {        const updateResult = await updateUserTenantInfo(res.data.uid, createdBy, pharmacyId);      } catch (updateError) {
         console.error("Failed to update user tenant info:", updateError);
         // Don't fail the entire operation if tenant update fails
       }
@@ -185,19 +168,13 @@ export const adminCreateUser = async (payload: { email: string; password: string
 
 // Helper function to update user with tenant information
 const updateUserTenantInfo = async (uid: string, createdBy: string | null, pharmacyId: string | null) => {
-  try {
-    console.log("updateUserTenantInfo: updating user", uid, "with:", { createdBy, pharmacyId });
-    const ref = firestore.doc(firestore.db, "users", uid);
+  try {    const ref = firestore.doc(firestore.db, "users", uid);
     const updateData = { 
       createdBy, 
       adminId: createdBy, 
       pharmacyId,
       updatedAt: new Date().toISOString() 
-    };
-    console.log("updateUserTenantInfo: update data:", updateData);
-    await firestore.updateDoc(ref, updateData);
-    console.log("updateUserTenantInfo: update successful");
-    return { success: true, message: "User tenant info updated" } as const;
+    };    await firestore.updateDoc(ref, updateData);    return { success: true, message: "User tenant info updated" } as const;
   } catch (error) {
     console.error("updateUserTenantInfo: error:", error);
     throw new Error(`Failed to update user tenant info: ${error}`);
@@ -221,23 +198,17 @@ export const getAllAdmins = async () => {
     const q = firestore.query(col, firestore.where("role", "in", ["admin", "super-admin"]));
     const snap = await firestore.getDocs(q);
     let admins = snap.docs.map((d) => ({ _id: d.id, ...(d.data() as any) }));
-    
-    console.log("Admins from Firestore query:", admins);
-    
+        
     // Check if current user is super admin and not in the list
     try {
       if (typeof window !== "undefined") {
         const authData = window.localStorage.getItem("pc_auth");
         if (authData) {
           const parsed = JSON.parse(authData);
-          const currentUser = parsed?.user;
-          console.log("Current user from localStorage:", currentUser);
-          
+          const currentUser = parsed?.user;          
           if (currentUser && currentUser.role === "super-admin") {
             // Check if super admin is already in the list
-            const superAdminExists = admins.some(admin => admin._id === currentUser.uid);
-            console.log("Super admin exists in list:", superAdminExists);
-            
+            const superAdminExists = admins.some(admin => admin._id === currentUser.uid);            
             if (!superAdminExists) {
               // Add super admin to the list
               const superAdminData = {
@@ -251,18 +222,12 @@ export const getAllAdmins = async () => {
                 pharmacyId: currentUser.pharmacyId,
                 pharmacyName: currentUser.pharmacyName
               };
-              admins.unshift(superAdminData);
-              console.log("Added super admin to list:", superAdminData);
-            }
+              admins.unshift(superAdminData);            }
           }
         }
       }
-    } catch (error) {
-      console.log("Could not check current user for super admin status:", error);
-    }
-    
-    console.log("Final admins list:", admins);
-    return { success: true, data: { admins } } as const;
+    } catch (error) {    }
+        return { success: true, data: { admins } } as const;
   } catch (error) {
     console.error("Error fetching admins:", error);
     handleServiceError(error, "Failed to fetch admins");
