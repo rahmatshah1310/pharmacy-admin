@@ -149,18 +149,6 @@ export const getSimpleProducts = async () => {
   }
 };
 
-export const createProduct = async (data: any) => {
-  try {
-    const col = firestore.collection(firestore.db, "products");
-    const { createdBy, adminId, pharmacyId } = getTenantMeta();
-    const created = await firestore.addDoc(col, { ...data, createdAt: new Date().toISOString(), createdBy, adminId, pharmacyId });
-    const snap = await firestore.getDoc(created);
-    return { success: true, message: "Product created", data: { product: { _id: snap.id, ...snap.data() } } } as const;
-  } catch (error) {
-    handleServiceError(error, "Failed to create product");
-  }
-};
-
 export const updateProduct = async (id: string, data: any) => {
   try {
     const ref = firestore.doc(firestore.db, "products", id);
