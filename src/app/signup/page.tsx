@@ -51,7 +51,6 @@ export default function SignupPage() {
         return "user"; // Regular admin creates users
       }
     } catch (error) {
-      console.log("No admin info found");
     }
     return "user"; // Default to user if no admin context
   };
@@ -66,7 +65,6 @@ export default function SignupPage() {
           adminInfo = JSON.parse(raw)
         }
       } catch (error) {
-        console.log("No admin info found in localStorage")
       }
       
       // Determine role based on admin context
