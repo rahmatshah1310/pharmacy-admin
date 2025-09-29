@@ -149,6 +149,43 @@ export function printElementById(elementId: string, title: string = 'Print') {
   printHTML(el.outerHTML, title)
 }
 
+// ---------- PDF Export (Direct Download) ----------
+async function ensureHtml2PdfLoaded() {
+  const w = window as any
+  if (w.html2pdf) return
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+    script.async = true
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Failed to load PDF library'))
+    document.body.appendChild(script)
+  })
+}
+
+export async function exportElementToPDF(elementId: string, filename: string = 'export.pdf') {
+  try {
+    const el = document.getElementById(elementId)
+    if (!el) {
+      notify.error('Element not found for PDF export')
+      return
+    }
+    await ensureHtml2PdfLoaded()
+    const w = window as any
+    const opt = {
+      margin:       10,
+      filename:     filename.endsWith('.pdf') ? filename : `${filename}.pdf`,
+      image:        { type: 'jpeg', quality: 0.95 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+    await w.html2pdf().set(opt).from(el).save()
+    notify.success('Exported PDF successfully')
+  } catch (err: any) {
+    notify.error(err?.message || 'Failed to export PDF')
+  }
+}
+
 // ---------- POS Receipt Printing ----------
 
 type ReceiptItem = { name: string; price: number; quantity: number }
