@@ -16,16 +16,21 @@ import { Select } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useAuth } from "@/lib/authContext"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getReturns, createReturn, updateReturnStatus, processReturn } from "@/services/returns.service"
+import { useSearchParams } from "next/navigation"
+import { useGetSaleById } from "@/app/api/sales"
+import { useReturnsQuery, useCreateReturn, useApproveReturn, useRejectReturn, useProcessReturn } from "@/app/api/returns"
 import ViewReturnModal from "@/components/modal/returns/ViewReturnModal"
 import ProcessReturnModal from "@/components/modal/returns/ProcessReturnModal"
+
 
 type ReturnStatus = "pending" | "approved" | "rejected" | "processed"
 
 export default function ReturnsPage() {
   const { user } = useAuth()
-  const qc = useQueryClient()
+  const params = useSearchParams()
+  const saleId = params.get('saleId') || ''
+  const { data: saleRes } = useGetSaleById(saleId)
+  const sale: any = (saleRes as any)?.data?.sale
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [sortBy, setSortBy] = useState("requestedAt")
@@ -33,30 +38,16 @@ export default function ReturnsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [showView, setShowView] = useState(false)
   const [selectedReturn, setSelectedReturn] = useState<any | null>(null)
+  const [showCreateFromSale, setShowCreateFromSale] = useState(false)
 
   const canApprove = user?.role === "admin"
 
-  const { data: rows = [] } = useQuery({
-    queryKey: ["returns", {}],
-    queryFn: async () => {
-      const res = await getReturns()
-      // @ts-ignore
-      return res.data.returns || []
-    },
-  })
+  const { data: rows = [] } = useReturnsQuery({})
 
-  const { mutateAsync: approveOne, isPending: approving } = useMutation({
-    mutationFn: async (id: string) => updateReturnStatus(id, "approved", user?.uid),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["returns"] }),
-  })
-  const { mutateAsync: rejectOne, isPending: rejecting } = useMutation({
-    mutationFn: async (id: string) => updateReturnStatus(id, "rejected", user?.uid),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["returns"] }),
-  })
-  const { mutateAsync: processOne, isPending: processing } = useMutation({
-    mutationFn: async (id: string) => processReturn(id, user?.uid || ""),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["returns"] }),
-  })
+  const { mutateAsync: approveOne, isPending: approving } = useApproveReturn()
+  const { mutateAsync: rejectOne, isPending: rejecting } = useRejectReturn()
+  const { mutateAsync: processOne, isPending: processing } = useProcessReturn()
+  const { mutateAsync: createReturn } = useCreateReturn()
 
   const filtered = useMemo(() => {
     const list = (rows as any[]).filter((r) => {
@@ -86,7 +77,7 @@ export default function ReturnsPage() {
 
   const approveSelected = async () => {
     if (!canApprove) return
-    await Promise.all(selectedIds.map((id) => approveOne(id)))
+    await Promise.all(selectedIds.map((id) => approveOne({ id, userId: user?.uid })))
     setSelectedIds([])
   }
 
@@ -107,6 +98,49 @@ export default function ReturnsPage() {
         <h1 className="text-3xl font-bold text-gray-900">Return Products</h1>
         <p className="text-gray-600 mt-2">Manage product return requests and stock adjustments</p>
       </div>
+
+      {!!saleId && !!sale && (
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Create Return from Sale #{String(saleId).slice(-8)}</CardTitle>
+                <CardDescription>Prefill return details from selected sale</CardDescription>
+              </div>
+              <Button onClick={() => setShowCreateFromSale((s) => !s)} variant="outline">
+                {showCreateFromSale ? 'Hide' : 'Show'} Items
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {showCreateFromSale && (
+              <div className="space-y-3">
+                {(sale?.items || []).map((it: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{it.name}</p>
+                      <p className="text-xs text-gray-500">Qty sold: {it.quantity}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" onClick={async () => {
+                        await createReturn({
+                          orderId: sale?._id,
+                          productId: it.productId,
+                          productName: it.name,
+                          quantity: 1,
+                          reason: 'customer_return',
+                          requestedBy: user?.uid || 'unknown',
+                        })
+                        setShowCreateFromSale(false)
+                      }}>Create Return</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-6">
@@ -163,11 +197,16 @@ export default function ReturnsPage() {
                 <TableHead></TableHead>
                 <TableHead>Return ID</TableHead>
                 <TableHead>Product</TableHead>
+                <TableHead>Product ID</TableHead>
                 <TableHead>Quantity</TableHead>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Requested By</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Requested At</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Stock Effect</TableHead>
+                <TableHead>Processed By</TableHead>
+                <TableHead>Processed At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -179,22 +218,27 @@ export default function ReturnsPage() {
                   </TableCell>
                   <TableCell>{r._id}</TableCell>
                   <TableCell>{r.productName}</TableCell>
+                  <TableCell>{r.productId}</TableCell>
                   <TableCell>{r.quantity}</TableCell>
                   <TableCell>{r.orderId}</TableCell>
                   <TableCell>{r.requestedBy}</TableCell>
                   <TableCell>{statusBadge(r.status)}</TableCell>
-                  <TableCell>{String(r.requestedAt).split('T')[0]}</TableCell>
+                  <TableCell>{r.requestedAt ? String(r.requestedAt).split('T')[0] : '-'}</TableCell>
+                  <TableCell>{r.reason || '-'}</TableCell>
+                  <TableCell className="capitalize">{r.stockEffect || '-'}</TableCell>
+                  <TableCell>{r.processedBy || '-'}</TableCell>
+                  <TableCell>{r.processedAt ? String(r.processedAt).split('T')[0] : '-'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => { setSelectedReturn(r); setShowView(true) }}>View</Button>
                       {canApprove && r.status === "pending" && (
-                        <Button size="sm" onClick={() => approveOne(r._id)} disabled={approving}>Approve</Button>
+                        <Button size="sm" onClick={() => approveOne({ id: r._id, userId: user?.uid })} disabled={approving}>Approve</Button>
                       )}
                       {canApprove && r.status === "pending" && (
-                        <Button size="sm" variant="outline" onClick={() => rejectOne(r._id)} disabled={rejecting}>Reject</Button>
+                        <Button size="sm" variant="outline" onClick={() => rejectOne({ id: r._id, userId: user?.uid })} disabled={rejecting}>Reject</Button>
                       )}
                       {canApprove && r.status === "approved" && (
-                        <Button size="sm" onClick={() => processOne(r._id)} disabled={processing}>
+                        <Button size="sm" onClick={() => processOne({ id: r._id, userId: user?.uid || "" })} disabled={processing}>
                           <ClipboardDocumentCheckIcon className="h-4 w-4 mr-1" /> Process
                         </Button>
                       )}
@@ -214,19 +258,19 @@ export default function ReturnsPage() {
         canApprove={canApprove}
         onApprove={async () => {
           if (selectedReturn) {
-            await approveOne(selectedReturn._id)
+            await approveOne({ id: selectedReturn._id, userId: user?.uid })
             setShowView(false)
           }
         }}
         onReject={async () => {
           if (selectedReturn) {
-            await rejectOne(selectedReturn._id)
+            await rejectOne({ id: selectedReturn._id, userId: user?.uid })
             setShowView(false)
           }
         }}
         onProcess={async () => {
           if (selectedReturn) {
-            await processOne(selectedReturn._id)
+            await processOne({ id: selectedReturn._id, userId: user?.uid || "" })
             setShowView(false)
           }
         }}
