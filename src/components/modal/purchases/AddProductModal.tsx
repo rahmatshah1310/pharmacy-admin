@@ -50,9 +50,6 @@ export default function AddProductModal({
   })
 
   const handleSubmit = async (values: ProductSchema) => {
-    console.log('Form submitted with values:', values);
-    console.log('Form errors:', form.formState.errors);
-    console.log('Form is valid:', form.formState.isValid);
     
     // Check if required fields are missing
     if (!values.name) {
@@ -74,7 +71,6 @@ export default function AddProductModal({
     
     try {
       const result = await createProduct(values as any)
-      console.log('Product created successfully:', result);
       notify.success('Product created')
       onOpenChange(false)
       form.reset()
