@@ -218,7 +218,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Super Admin - Pharmacies Management */}
-        {isSuperAdmin && (
+        {/* {isSuperAdmin && (
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Pharmacies Management</CardTitle>
@@ -232,7 +232,7 @@ export default function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
-        )}
+        )} */}
 
         {canManageUsers && (
         <Card className="lg:col-span-2">
