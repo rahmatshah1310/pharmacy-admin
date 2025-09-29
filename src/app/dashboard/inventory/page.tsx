@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/authContext"
 import { usePermissions } from "@/lib/usePermissions"
 import { useProductsQuery, useCategoriesQuery, useCreateCategory } from "@/app/api/products"
-import { formatCurrency, notify, exportToCSV } from "@/lib/utils"
+import { formatCurrency, notify, exportElementToPDF } from "@/lib/utils"
 import StockAdjustmentModal from "@/components/modal/inventory/StockAdjustmentModal"
 import AddCategoryModal from "@/components/modal/purchases/AddCategoryModal"
 
@@ -277,9 +277,9 @@ export default function InventoryPage() {
                     value={filterMaxStock}
                     onChange={(e) => setFilterMaxStock(e.target.value)}
                   />
-                  <Button variant="outline" disabled={!isAdmin} onClick={() => exportToCSV(products as any[], 'inventory.csv')}>
+                  <Button variant="outline" disabled={!isAdmin} onClick={() => exportElementToPDF('inventory-table', 'inventory.pdf')}>
                     <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                    Export
+                    Export PDF
                   </Button>
                 </div>
               </div>
@@ -292,7 +292,7 @@ export default function InventoryPage() {
               <CardDescription>Track all inventory movements and adjustments with product details</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table id="inventory-table">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product Details</TableHead>
