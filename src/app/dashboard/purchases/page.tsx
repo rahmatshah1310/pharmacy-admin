@@ -3,21 +3,18 @@
 import { useState, useEffect } from "react"
 import { 
   DocumentTextIcon,
-  CurrencyDollarIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  EyeIcon,
   MagnifyingGlassIcon,
   ArrowsUpDownIcon,
   BuildingOfficeIcon,
-  UserIcon
 } from "@heroicons/react/24/outline"
 import { useProductsQuery, useDeleteProduct, useCategoriesQuery, useCreateCategory } from "@/app/api/products"
+import { usePurchaseOrdersQuery } from "@/app/api/purchases"
 import { useSuppliersSimpleQuery, useCreateSupplier } from "@/app/api/suppliers"
-import { sampleSuppliers } from "./sample-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,10 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/authContext"
 import { usePermissions } from "@/lib/usePermissions"
 import { notify, formatCurrency } from "@/lib/utils"
-import EditProductModal from "@/components/modal/purchases/EditProductModal"
+import EditPurchaseModal from "@/components/modal/purchases/EditPurchaseModal"
 import AddCategoryModal from "@/components/modal/purchases/AddCategoryModal"
 import AddSupplierModal from "@/components/modal/purchases/AddSupplierModal"
-import AddProductModal from "@/components/modal/purchases/AddProductModal"
+// import AddProductModal from "@/components/modal/purchases/AddProductModal"
+import AddPurchaseModal from "@/components/modal/purchases/AddPurchaseModal"
 
 interface Supplier {
   _id: string
@@ -71,14 +69,17 @@ export default function PurchasesPage() {
   const { mutateAsync: deleteProduct, isPending: deleting } = useDeleteProduct()
   const { data: suppliersList = [] } = useSuppliersSimpleQuery(true)
   const { data: categoriesList = [] } = useCategoriesQuery(true)
+  const { data: purchaseOrders = [] } = usePurchaseOrdersQuery({})
   
-  const [suppliers, setSuppliers] = useState<Supplier[]>(sampleSuppliers as any)
+  const [suppliers, setSuppliers] = useState<Supplier[]>([] as any)
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
   const [mounted, setMounted] = useState(false)
 
   // Modal states
-  const [showAddProduct, setShowAddProduct] = useState(false)
-  const [showEditProduct, setShowEditProduct] = useState(false)
+  // const [showAddProduct, setShowAddProduct] = useState(false)
+  const [showAddPurchase, setShowAddPurchase] = useState(false)
+  const [showEditPurchase, setShowEditPurchase] = useState(false)
+  const [selectedPurchase, setSelectedPurchase] = useState<any | null>(null)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -90,8 +91,8 @@ export default function PurchasesPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [lowStockOnly, setLowStockOnly] = useState(false)
   const [expiringSoon, setExpiringSoon] = useState(false)
-  const [sortBy, setSortBy] = useState("name")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [sortBy, setSortBy] = useState("orderDate")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   
   // Category and supplier creation hooks
   const { mutateAsync: createCategory } = useCreateCategory()
@@ -134,9 +135,9 @@ export default function PurchasesPage() {
     setDeleteTargetId(null)
   }
 
-  const handleEditProduct = (product: any) => {
-    setSelectedProduct(product)
-    setShowEditProduct(true)
+  const handleEditPurchase = (purchase: any) => {
+    setSelectedPurchase(purchase)
+    setShowEditPurchase(true)
   }
 
   const handleAddCategory = async (name: string) => {
@@ -184,8 +185,8 @@ export default function PurchasesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900">{(products as any[]).length}</p>
+                <p className="text-sm font-medium text-gray-600">Total Purchases</p>
+                <p className="text-2xl font-bold text-gray-900">{(purchaseOrders as any[]).length}</p>
               </div>
               <DocumentTextIcon className="h-8 w-8 text-blue-600" />
             </div>
@@ -234,7 +235,7 @@ export default function PurchasesPage() {
       {/* Main Content */}
       <Tabs defaultValue="products" className="space-y-6">
         <TabsList className="grid w-full grid-cols-1">
-          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="products">Purchases</TabsTrigger>
         </TabsList>
 
         {/* Products Tab */}
@@ -243,18 +244,19 @@ export default function PurchasesPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Products ({(products as any[]).length})</CardTitle>
-                  <CardDescription>Manage products (create, update, delete)</CardDescription>
+                  <CardTitle>Purchases ({(purchaseOrders as any[]).length})</CardTitle>
+                  <CardDescription>Manage purchases (create, update)</CardDescription>
                 </div>
+                <div className="flex gap-2">
                 <Button 
-                  onClick={() => {
-                    setShowAddProduct(true);
-                  }}
+                  onClick={() => setShowAddPurchase(true)}
                   disabled={!isAdmin}
+                  variant="outline"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
-                  Add Product
+                  Add Purchase
                 </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -265,7 +267,7 @@ export default function PurchasesPage() {
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
                       className="pl-10 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none"
-                      placeholder="Search products by name, SKU, barcode, or supplier..."
+                      placeholder="Search purchases by product, SKU, invoice, or category..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -278,12 +280,6 @@ export default function PurchasesPage() {
                       <option key={c._id} value={c.name}>{c.name}</option>
                     ))}
                   </Select>
-                  <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="discontinued">Discontinued</option>
-                  </Select>
                   <Button variant="outline" onClick={() => setLowStockOnly(!lowStockOnly)} className={lowStockOnly ? "bg-red-50 text-red-700" : ""}>
                     <ExclamationTriangleIcon className="h-4 w-4 mr-2" /> Low Stock
                   </Button>
@@ -293,9 +289,11 @@ export default function PurchasesPage() {
                 </div>
                 <div className="flex gap-2">
                   <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                    <option value="name">Sort by Name</option>
-                    <option value="unitPrice">Sort by Price</option>
+                    <option value="productName">Sort by Product</option>
+                    <option value="unitPrice">Sort by Unit Price</option>
                     <option value="sku">Sort by SKU</option>
+                    <option value="orderDate">Sort by Date</option>
+                    <option value="quantity">Sort by Quantity</option>
                     <option value="expiryDate">Sort by Expiry</option>
                   </Select>
                   <Button variant="outline" size="sm" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}>
@@ -306,28 +304,45 @@ export default function PurchasesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Date</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>SKU</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Unit Price</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Invoice #</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(products as any[])
-                    .filter((p: any) => {
-                      const matchesSearch = (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (p.barcode || '').includes(searchTerm) ||
-                        (p.supplier || '').toLowerCase().includes(searchTerm.toLowerCase())
-                      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory
-                      const matchesStatus = filterStatus === 'all' || p.status === filterStatus
-                      const meetsLowStock = !lowStockOnly || (Number(p.currentStock ?? 0) <= Number(p.minStock ?? -1))
-                      const meetsExpiring = !expiringSoon || (mounted && new Date(p.expiryDate) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
-                      return matchesSearch && matchesCategory && matchesStatus && meetsLowStock && meetsExpiring
+                  {(purchaseOrders as any[])
+                    .filter((o: any) => {
+                      const q = (searchTerm || '').toLowerCase()
+                      const matchesSearch = !searchTerm || 
+                        (o.productName || '').toLowerCase().includes(q) ||
+                        (o.sku || '').toLowerCase().includes(q) ||
+                        (o.invoiceNumber || '').toLowerCase().includes(q) ||
+                        (o.categoryName || '').toLowerCase().includes(q)
+                      
+                      const matchesCategory = selectedCategory === 'all' || o.categoryName === selectedCategory
+                      
+                      // Note: Purchase orders don't have status field like products, so filterStatus is not applicable
+                      // const matchesStatus = filterStatus === 'all' || o.status === filterStatus
+                      
+                      // Low stock filter - check if quantity is low (assuming low means <= 5)
+                      const matchesLowStock = !lowStockOnly || Number(o.quantity || 0) <= 5
+                      
+                      // Expiring soon filter - check if expiry date is within 30 days
+                      const matchesExpiring = !expiringSoon || (() => {
+                        if (!o.expiryDate) return false
+                        const expiry = new Date(o.expiryDate)
+                        const now = new Date()
+                        const daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                        return daysUntilExpiry <= 30 && daysUntilExpiry >= 0
+                      })()
+                      
+                      return matchesSearch && matchesCategory && matchesLowStock && matchesExpiring
                     })
                     .sort((a: any, b: any) => {
                       let av = a[sortBy]
@@ -336,59 +351,23 @@ export default function PurchasesPage() {
                       if (sortOrder === 'asc') return av < bv ? -1 : av > bv ? 1 : 0
                       return av > bv ? -1 : av < bv ? 1 : 0
                     })
-                    .map((p: any) => {
-                      const stock = getStockStatus(p)
-                      const expiry = getExpiryStatus(p.expiryDate)
+                    .map((o: any) => {
+                      const total = Number(o.unitPrice || 0) * Number(o.quantity || 0)
                       return (
-                        <TableRow key={p._id || p.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{p.name}</p>
-                              <p className="text-xs text-gray-500">{p.supplier}</p>
-                              <p className="text-xs text-gray-400">{p.location}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-mono text-sm">{p.sku}</p>
-                              <p className="text-xs text-gray-400">{p.barcode}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell><Badge variant="secondary">{p.category}</Badge></TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium">{Number(p.currentStock ?? 0)}</span>
-                              <Badge variant={stock.color as any} className="text-xs">{stock.text}</Badge>
-                            </div>
-                            <p className="text-xs text-gray-500">Min: {p.minStock} | Max: {p.maxStock}</p>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{formatCurrency(p.unitPrice || p.price || 0)}</p>
-                              <p className="text-xs text-gray-500">Cost: {formatCurrency(p.costPrice || 0)}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm">{p.expiryDate ? new Date(p.expiryDate).toISOString().split('T')[0] : '-'}</span>
-                              <Badge variant={expiry.color as any} className="text-xs">{expiry.text}</Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={p.status === 'active' ? 'success' : p.status === 'inactive' ? 'warning' : 'destructive'}>
-                              {p.status || 'active'}
-                            </Badge>
-                          </TableCell>
+                        <TableRow key={o._id || o.id}>
+                          <TableCell>{o.orderDate ? String(o.orderDate).slice(0,10) : '-'}</TableCell>
+                          <TableCell>{o.productName || '-'}</TableCell>
+                          <TableCell>{o.sku || '-'}</TableCell>
+                          <TableCell>{o.quantity ?? '-'}</TableCell>
+                          <TableCell>{formatCurrency(o.unitPrice || 0)}</TableCell>
+                          <TableCell>{formatCurrency(total)}</TableCell>
+                          <TableCell>{o.invoiceNumber || '-'}</TableCell>
+                          <TableCell><Badge variant="secondary">{o.categoryName || '-'}</Badge></TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {isAdmin && (
-                                <Button size="sm" variant="outline" onClick={() => handleEditProduct(p)}>
+                                <Button size="sm" variant="outline" onClick={() => handleEditPurchase(o)}>
                                   <PencilIcon className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {isAdmin && (
-                                <Button size="sm" variant="outline" onClick={() => handleDeleteProduct((p as any)._id || (p as any).id)}>
-                                  <TrashIcon className="h-4 w-4" />
                                 </Button>
                               )}
                             </div>
@@ -405,23 +384,21 @@ export default function PurchasesPage() {
       </Tabs>
 
       {/* Modals */}
-      <AddProductModal
-        open={showAddProduct}
-        onOpenChange={setShowAddProduct}
-        categoriesList={categoriesList as any[]}
-        suppliersList={suppliersList as any[]}
+      {/* AddProductModal removed as per new flow */}
+
+      <EditPurchaseModal
+        open={showEditPurchase}
+        onOpenChange={setShowEditPurchase}
+        purchase={selectedPurchase}
+        categories={categoriesList as any[]}
         onAddCategory={handleAddCategory}
-        onAddSupplier={handleAddSupplier}
       />
 
-      <EditProductModal
-        open={showEditProduct}
-        onOpenChange={setShowEditProduct}
-        product={selectedProduct}
-        categoriesList={categoriesList as any[]}
-        suppliersList={suppliersList as any[]}
+      <AddPurchaseModal
+        open={showAddPurchase}
+        onOpenChange={setShowAddPurchase}
+        categories={categoriesList as any[]}
         onAddCategory={handleAddCategory}
-        onAddSupplier={handleAddSupplier}
       />
 
       <AddCategoryModal
