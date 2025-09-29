@@ -153,9 +153,9 @@ export default function POSPage() {
   }
 
   const filteredProducts = (productsList as any[]).filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.barcode?.includes(searchTerm)
+    (product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.barcode || '').includes(searchTerm)
   )
 
   const addToCart = (product: any, isPrescription = false) => {
@@ -293,8 +293,8 @@ export default function POSPage() {
 
   const searchCustomer = (query: string) => {
     return (customersList as any[]).filter((customer: any) =>
-      customer.name.toLowerCase().includes(query.toLowerCase()) ||
-      customer.phone.includes(query)
+      (customer.name || '').toLowerCase().includes(query.toLowerCase()) ||
+      (customer.phone || '').includes(query)
     )
   }
 
