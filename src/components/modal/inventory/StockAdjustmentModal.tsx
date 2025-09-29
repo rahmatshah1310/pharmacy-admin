@@ -18,7 +18,6 @@ export default function StockAdjustmentModal({ open, onOpenChange, product }: St
 
   const handleApplyAdjustment = () => {
     // Handle stock adjustment logic here
-    console.log("Applying stock adjustment:", { adjustmentType, quantity, reason })
     onOpenChange(false)
     // Reset form
     setAdjustmentType("add")
