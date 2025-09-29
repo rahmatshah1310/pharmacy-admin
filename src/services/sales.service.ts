@@ -157,29 +157,10 @@ export const getAllSales = async (page: number = 1, limitCount: number = 10, sta
   try {
     const colRef = firestore.collection(firestore.db, "sales");
     const { pharmacyId } = getTenantMeta();
-    let q = firestore.query(colRef, firestore.orderBy("createdAt", "desc"));
-    if (pharmacyId) q = firestore.query(q, firestore.where("pharmacyId", "==", pharmacyId));
-
-    // Apply filters
-    if (status) {
-      q = firestore.query(q, firestore.where("status", "==", status));
-    }
-    if (startDate) {
-      q = firestore.query(q, firestore.where("createdAt", ">=", startDate));
-    }
-    if (endDate) {
-      q = firestore.query(q, firestore.where("createdAt", "<=", endDate));
-    }
-
-    // Apply pagination
-    const offset = (page - 1) * limitCount;
-    if (offset > 0) {
-      // For pagination, we need to get the last document from previous page
-      // This is a simplified approach - in production, you'd want cursor-based pagination
-      q = firestore.query(q, firestore.limit(offset + limitCount));
-    } else {
-      q = firestore.query(q, firestore.limit(limitCount));
-    }
+    // Build minimal query; filter/sort/paginate client-side to avoid index issues
+    const q = pharmacyId
+      ? firestore.query(colRef, firestore.where("pharmacyId", "==", pharmacyId))
+      : firestore.query(colRef);
 
     const snapshot = await firestore.getDocs(q);
     const sales: Sale[] = [];
@@ -193,16 +174,26 @@ export const getAllSales = async (page: number = 1, limitCount: number = 10, sta
       }
     });
 
-    // Apply offset for pagination (simplified approach)
-    const paginatedSales = offset > 0 ? sales.slice(offset) : sales;
+    // Client-side filters
+    const filtered = sales.filter((s) => {
+      if (status && s.status !== status) return false;
+      if (startDate && String(s.createdAt) < startDate) return false;
+      if (endDate && String(s.createdAt) > endDate) return false;
+      return true;
+    });
+    // Sort by createdAt desc
+    filtered.sort((a: any, b: any) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    // Pagination
+    const offset = (page - 1) * limitCount;
+    const paginatedSales = filtered.slice(offset, offset + limitCount);
 
     return {
       success: true,
       message: "Sales retrieved successfully",
       data: {
         sales: paginatedSales,
-        total: sales.length,
-        hasMore: sales.length === limitCount
+        total: filtered.length,
+        hasMore: offset + limitCount < filtered.length
       }
     };
   } catch (error) {
