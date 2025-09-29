@@ -650,7 +650,6 @@ export default function POSPage() {
         onOpenChange={setShowCalculator}
         onResult={(result) => {
           // You can use the result for calculations
-          console.log('Calculator result:', result)
         }}
       />
 
