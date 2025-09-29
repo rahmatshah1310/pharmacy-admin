@@ -13,9 +13,9 @@ interface ProductFormProps {
   form: any
   onSubmit: (values: ProductSchema) => void
   categoriesList: any[]
-  suppliersList: any[]
+  // suppliersList: any[]
   onAddCategory: (name: string) => Promise<any>
-  onAddSupplier: (name: string) => Promise<any>
+  // onAddSupplier: (name: string) => Promise<any>
   isSubmitting: boolean
   submitButtonText: string
   onCancel: () => void
@@ -25,9 +25,9 @@ export default function ProductForm({
   form,
   onSubmit,
   categoriesList,
-  suppliersList,
+  // suppliersList,
   onAddCategory,
-  onAddSupplier,
+  // onAddSupplier,
   isSubmitting,
   submitButtonText,
   onCancel
@@ -35,7 +35,7 @@ export default function ProductForm({
   const [categoryQuery, setCategoryQuery] = useState("")
   const [supplierQuery, setSupplierQuery] = useState("")
   const [localCategories, setLocalCategories] = useState<any[]>(categoriesList || [])
-  const [localSuppliers, setLocalSuppliers] = useState<any[]>(suppliersList || [])
+  // const [localSuppliers, setLocalSuppliers] = useState<any[]>(suppliersList || [])
   const [showCategoryList, setShowCategoryList] = useState(false)
   const [showSupplierList, setShowSupplierList] = useState(false)
   const categoryBoxRef = useRef<HTMLDivElement | null>(null)
@@ -44,25 +44,25 @@ export default function ProductForm({
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false)
 
   useEffect(() => { setLocalCategories(categoriesList || []) }, [categoriesList])
-  useEffect(() => { setLocalSuppliers(suppliersList || []) }, [suppliersList])
+  // useEffect(() => { setLocalSuppliers(suppliersList || []) }, [suppliersList])
 
   const filteredCategories = useMemo(() => {
     return (localCategories || []).filter((c: any) => (c.name || "").toLowerCase().includes((categoryQuery || "").toLowerCase()))
   }, [localCategories, categoryQuery])
   
-  const filteredSuppliers = useMemo(() => {
-    return (localSuppliers || []).filter((s: any) => ((s.companyName || s.name || "")).toLowerCase().includes((supplierQuery || "").toLowerCase()))
-  }, [localSuppliers, supplierQuery])
+  // const filteredSuppliers = useMemo(() => {
+  //   return (localSuppliers || []).filter((s: any) => ((s.companyName || s.name || "")).toLowerCase().includes((supplierQuery || "").toLowerCase()))
+  // }, [localSuppliers, supplierQuery])
 
   // Keep visible queries in sync with form values (supports edit modal)
   useEffect(() => {
     const sub = form.watch((values: any, { name }: any) => {
       if (name === 'category') setCategoryQuery(values.category || '')
-      if (name === 'supplier') setSupplierQuery(values.supplier || '')
+    // if (name === 'supplier') setSupplierQuery(values.supplier || '')
     })
     // Initialize from existing values
     setCategoryQuery(form.getValues('category') || '')
-    setSupplierQuery(form.getValues('supplier') || '')
+    // setSupplierQuery(form.getValues('supplier') || '')
     return () => { if (typeof sub === 'function') sub() }
   }, [form])
 
@@ -72,14 +72,14 @@ export default function ProductForm({
       if (showCategoryList && categoryBoxRef.current && !categoryBoxRef.current.contains(e.target as Node)) {
         setShowCategoryList(false)
       }
-      if (showSupplierList && supplierBoxRef.current && !supplierBoxRef.current.contains(e.target as Node)) {
-        setShowSupplierList(false)
-      }
+      // if (showSupplierList && supplierBoxRef.current && !supplierBoxRef.current.contains(e.target as Node)) {
+      //   setShowSupplierList(false)
+      // }
     }
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setShowCategoryList(false)
-        setShowSupplierList(false)
+        // setShowSupplierList(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -88,7 +88,7 @@ export default function ProductForm({
       document.removeEventListener('mousedown', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [showCategoryList, showSupplierList])
+  }, [showCategoryList])
 
   const handleAddCategory = async (name: string) => {
     try {
@@ -108,23 +108,23 @@ export default function ProductForm({
     }
   }
 
-  const handleAddSupplier = async (name: string) => {
-    try {
-      const res = await onAddSupplier(name)
-      const newSup = res?.data?.supplier || res
-      // merge into local list if missing
-      setLocalSuppliers((prev) => {
-        const exists = prev.some((s: any) => s._id === newSup._id)
-        return exists ? prev : [...prev, newSup]
-      })
-      setSupplierQuery(newSup.companyName || newSup.name)
-      form.setValue('supplier' as any, newSup.companyName || newSup.name)
-      form.setValue('supplierId' as any, newSup._id)
-      setShowSupplierList(false)
-    } catch (error) {
-      // Error handling is done in the parent component
-    }
-  }
+  // const handleAddSupplier = async (name: string) => {
+  //   try {
+  //     const res = await onAddSupplier(name)
+  //     const newSup = res?.data?.supplier || res
+  //     // merge into local list if missing
+  //     setLocalSuppliers((prev) => {
+  //       const exists = prev.some((s: any) => s._id === newSup._id)
+  //       return exists ? prev : [...prev, newSup]
+  //     })
+  //     setSupplierQuery(newSup.companyName || newSup.name)
+  //     form.setValue('supplier' as any, newSup.companyName || newSup.name)
+  //     form.setValue('supplierId' as any, newSup._id)
+  //     setShowSupplierList(false)
+  //   } catch (error) {
+  //     // Error handling is done in the parent component
+  //   }
+  // }
 
   const validateForm = () => {
     const values = form.getValues()
@@ -139,9 +139,9 @@ export default function ProductForm({
     if (!values.sku || values.sku.trim() === '') {
       errors.push('SKU is required')
     }
-    if (!values.supplier || values.supplier.trim() === '') {
-      errors.push('Supplier is required')
-    }
+    // if (!values.supplier || values.supplier.trim() === '') {
+    //   errors.push('Supplier is required')
+    // }
     if (values.currentStock < 0) {
       errors.push('Current stock cannot be negative')
     }
@@ -278,7 +278,7 @@ export default function ProductForm({
       </div>
       
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        {/* <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Supplier <span className="text-red-500">*</span>
           </label>
@@ -321,7 +321,7 @@ export default function ProductForm({
               </Button>
             </div>
           </div>
-        </div>
+        </div> */}
         <div className="grid grid-cols-2 gap-4">
            <div><label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
            <Input placeholder="e.g., A1-B2" {...form.register('location')} /></div>
@@ -361,11 +361,11 @@ export default function ProductForm({
     />
 
     {/* Add Supplier Modal */}
-    <AddSupplierModal
+    {/* <AddSupplierModal
       open={showAddSupplierModal}
       onOpenChange={setShowAddSupplierModal}
       onConfirm={handleAddSupplier}
-    />
+    /> */}
     </>
   )
 }
