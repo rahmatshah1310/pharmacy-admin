@@ -16,8 +16,7 @@ import {
   TrashIcon,
   CalendarIcon,
   MagnifyingGlassIcon,
-  ArrowsUpDownIcon,
-  ClipboardDocumentCheckIcon
+  ArrowsUpDownIcon
 } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
@@ -139,13 +138,7 @@ export default function SalesPage() {
     );
   }
 
-  if (salesError) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-600">Error loading sales data</p>
-      </div>
-    );
-  }
+
 
   const sales = salesData?.data?.sales || [];
   const stats = statsData?.data || {};
@@ -156,15 +149,15 @@ export default function SalesPage() {
     
     const searchLower = searchQuery.toLowerCase();
     return (
-      sale._id.toLowerCase().includes(searchLower) ||
-      sale.items.some(item => item.name.toLowerCase().includes(searchLower)) ||
-      sale.paymentMethod.toLowerCase().includes(searchLower) ||
+      (sale._id || '').toLowerCase().includes(searchLower) ||
+      sale.items.some(item => (item.name || '').toLowerCase().includes(searchLower)) ||
+      (sale.paymentMethod || '').toLowerCase().includes(searchLower) ||
       (sale.customerId && sale.customerId.toLowerCase().includes(searchLower)) ||
       (sale.notes && sale.notes.toLowerCase().includes(searchLower))
     );
   }).filter(sale => {
     if (paymentMethodFilter === "all") return true;
-    return sale.paymentMethod.toLowerCase() === paymentMethodFilter.toLowerCase();
+    return (sale.paymentMethod || '').toLowerCase() === paymentMethodFilter.toLowerCase();
   }) || [];
 
   return (
@@ -365,14 +358,6 @@ export default function SalesPage() {
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => {/* View sale details */}}>
                         <EyeIcon className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => router.push(`/dashboard/returns?saleId=${sale._id}`)}
-                        title="Return products"
-                      >
-                        <ClipboardDocumentCheckIcon className="h-4 w-4" />
                       </Button>
                       <Select 
                         value={sale.status}
