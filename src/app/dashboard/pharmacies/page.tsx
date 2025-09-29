@@ -26,10 +26,6 @@ export default function PharmaciesPage() {
   const [editingName, setEditingName] = useState("");
 
   // Debug logging
-  console.log("Admins data:", admins);
-  console.log("Admins loading:", adminsLoading);
-  console.log("Current user:", user);
-
   // Show loading skeleton while data is loading
   if (isLoading || adminsLoading) {
     return (
