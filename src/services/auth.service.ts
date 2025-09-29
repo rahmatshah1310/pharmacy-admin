@@ -70,7 +70,6 @@ export const signupUser = async ({
       const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}");
       pharmacyName = adminInfo.pharmacyName || null;
     } catch (error) {
-      console.log("No admin pharmacy info found");
     }
   }
   
