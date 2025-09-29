@@ -31,10 +31,12 @@ import { Select } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { formatCurrency, exportToCSV, printElementById } from "@/lib/utils"
+import { formatCurrency, printElementById, exportElementToPDF } from "@/lib/utils"
 import GenerateReportModal from "@/components/modal/reports/GenerateReportModal"
 import ViewReportModal from "@/components/modal/reports/ViewReportModal"
 import { useAuth } from "@/lib/authContext"
+import { useGetSalesStats } from "@/app/api/sales"
+import { useProductsQuery } from "@/app/api/products"
 
 interface ReportData {
   id: string
@@ -174,6 +176,9 @@ const sampleInventoryData: InventoryReport = {
 
 export default function ReportsPage() {
   const { isAdmin } = useAuth()
+  // Live data hooks
+  const { data: salesStatsRes, isLoading: salesStatsLoading, error: salesStatsError } = useGetSalesStats()
+  const { data: products = [], isLoading: productsLoading } = useProductsQuery({})
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedType, setSelectedType] = useState("all")
   const [selectedFrequency, setSelectedFrequency] = useState("all")
@@ -204,6 +209,16 @@ export default function ReportsPage() {
     { value: "quarterly", label: "Quarterly" },
     { value: "yearly", label: "Yearly" }
   ]
+
+  // Derive live analytics (with safe fallbacks to sample*)
+  const totalInventoryValue = (products as any[]).reduce((sum, p) => sum + (Number(p.currentStock || 0) * Number(p.unitPrice || 0)), 0)
+  const lowStockProducts = (products as any[]).filter((p) => (Number(p.currentStock || 0)) <= Number(p.minStock || 0))
+  const lowStockCount = lowStockProducts.length
+  const outOfStockCount = (products as any[]).filter((p) => Number(p.currentStock || 0) === 0).length
+  const expiringSoonCount = 0 // If expiryDate exists on products, compute like inventory/page.tsx later
+
+  const liveSalesTotalRevenue = salesStatsRes?.data?.totalRevenue ?? sampleSalesData.totalSales
+  const liveSalesTotalOrders = salesStatsRes?.data?.total ?? sampleSalesData.totalOrders
 
   const filteredReports = sampleReports.filter(report => {
     const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -388,9 +403,9 @@ export default function ReportsPage() {
                     <ChartBarIcon className="h-4 w-4 mr-2" />
                     Generate Report
                   </Button>
-                  <Button variant="outline" disabled={!isAdmin} onClick={() => exportToCSV(sortedReports as any[], 'reports.csv')}>
+                  <Button variant="outline" disabled={!isAdmin} onClick={() => exportElementToPDF('reports-table', 'reports.pdf')}>
                     <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                    Export All
+                    Export PDF
                   </Button>
                   <Button variant="outline" disabled={!isAdmin} onClick={() => printElementById('reports-table', 'Reports List')}>
                     <PrinterIcon className="h-4 w-4 mr-2" />
@@ -501,26 +516,26 @@ export default function ReportsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Sales Overview</CardTitle>
-                <CardDescription>Key sales metrics for {sampleSalesData.period}</CardDescription>
+                <CardDescription>Key sales metrics</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Total Sales</span>
                     <span className="text-2xl font-bold text-green-600">
-                      {formatCurrency(sampleSalesData.totalSales)}
+                      {salesStatsLoading ? '—' : formatCurrency(liveSalesTotalRevenue)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Total Orders</span>
                     <span className="text-xl font-semibold">
-                      {sampleSalesData.totalOrders.toLocaleString()}
+                      {salesStatsLoading ? '—' : Number(liveSalesTotalOrders).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Average Order Value</span>
                     <span className="text-xl font-semibold">
-                      {formatCurrency(sampleSalesData.averageOrderValue)}
+                      {salesStatsLoading || !liveSalesTotalOrders ? '—' : formatCurrency(liveSalesTotalRevenue / Math.max(1, Number(liveSalesTotalOrders)))}
                     </span>
                   </div>
                 </div>
@@ -531,11 +546,11 @@ export default function ReportsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Top Selling Products</CardTitle>
-                <CardDescription>Best performing products by revenue</CardDescription>
+                <CardDescription>Best performing products</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {sampleSalesData.topProducts.map((product, index) => (
+                  {(sampleSalesData.topProducts).map((product, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -638,31 +653,31 @@ export default function ReportsPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Total Products</span>
                     <span className="text-2xl font-bold text-blue-600">
-                      {sampleInventoryData.totalProducts.toLocaleString()}
+                      {productsLoading ? '—' : (products as any[]).length.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Total Value</span>
                     <span className="text-xl font-semibold">
-                      {formatCurrency(sampleInventoryData.totalValue)}
+                      {productsLoading ? '—' : formatCurrency(totalInventoryValue || sampleInventoryData.totalValue)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Low Stock Items</span>
                     <span className="text-xl font-semibold text-orange-600">
-                      {sampleInventoryData.lowStockItems}
+                      {productsLoading ? '—' : lowStockCount}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Out of Stock</span>
                     <span className="text-xl font-semibold text-red-600">
-                      {sampleInventoryData.outOfStockItems}
+                      {productsLoading ? '—' : outOfStockCount}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Expiring Soon</span>
                     <span className="text-xl font-semibold text-yellow-600">
-                      {sampleInventoryData.expiringSoon}
+                      {productsLoading ? '—' : (expiringSoonCount || sampleInventoryData.expiringSoon)}
                     </span>
                   </div>
                 </div>
@@ -884,7 +899,6 @@ export default function ReportsPage() {
         open={showGenerateReport}
         onOpenChange={setShowGenerateReport}
         onGenerate={(data) => {
-          console.log('Generate report:', data)
           // Handle report generation logic here
         }}
       />
@@ -895,15 +909,12 @@ export default function ReportsPage() {
         onOpenChange={setShowViewReport}
         report={selectedReport}
         onGenerate={() => {
-          console.log('Generate report:', selectedReport)
           // Handle report generation logic here
         }}
         onDownload={() => {
-          console.log('Download report:', selectedReport)
           // Handle report download logic here
         }}
         onPrint={() => {
-          console.log('Print report:', selectedReport)
           // Handle report print logic here
         }}
       />
