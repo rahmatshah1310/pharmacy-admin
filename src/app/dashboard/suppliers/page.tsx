@@ -566,7 +566,7 @@ export default function SuppliersPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Credit Limit ($)
+                    Credit Limit (Rs.)
                   </label>
                   <Input type="number" placeholder="Enter credit limit" {...register("paymentTerms.creditLimit", { valueAsNumber: true })} />
                 </div>
@@ -860,7 +860,7 @@ export default function SuppliersPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Credit Limit ($)
+                    Credit Limit (Rs.)
                   </label>
                   <Input name="creditLimit" type="number" placeholder="Enter credit limit" defaultValue={(selectedSupplier as any)?.paymentTerms?.creditLimit || 0} />
                 </div>
