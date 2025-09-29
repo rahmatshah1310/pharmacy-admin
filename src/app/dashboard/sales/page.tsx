@@ -16,7 +16,8 @@ import {
   TrashIcon,
   CalendarIcon,
   MagnifyingGlassIcon,
-  ArrowsUpDownIcon
+  ArrowsUpDownIcon,
+  ClipboardDocumentCheckIcon
 } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
@@ -29,8 +30,10 @@ import { formatCurrency } from "@/lib/utils";
 import DeleteSaleModal from "@/components/modal/sales/DeleteSaleModal";
 import { useAuth } from "@/lib/authContext";
 import { usePermissions } from "@/lib/usePermissions";
+import { useRouter } from "next/navigation";
 
 export default function SalesPage() {
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
@@ -362,6 +365,14 @@ export default function SalesPage() {
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => {/* View sale details */}}>
                         <EyeIcon className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => router.push(`/dashboard/returns?saleId=${sale._id}`)}
+                        title="Return products"
+                      >
+                        <ClipboardDocumentCheckIcon className="h-4 w-4" />
                       </Button>
                       <Select 
                         value={sale.status}
