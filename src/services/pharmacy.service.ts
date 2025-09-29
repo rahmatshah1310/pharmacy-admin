@@ -94,6 +94,22 @@ export const createPharmacy = async (data: { name: string; adminUid: string; add
       updatedAt: new Date().toISOString(),
     });
     const snap = await firestore.getDoc(created);
+
+    // Also update the admin user's profile with pharmacyId and pharmacyName for quick linking
+    try {
+      if (data.adminUid) {
+        const adminRef = firestore.doc(firestore.db, "users", data.adminUid);
+        await firestore.updateDoc(adminRef, {
+          pharmacyId: snap.id,
+          pharmacyName: (snap.data() as any)?.name ?? data.name,
+          updatedAt: new Date().toISOString(),
+        } as any);
+      }
+    } catch (e) {
+      // Non-fatal: pharmacy is created even if user link fails
+      console.warn("Failed to link admin to pharmacyId", e);
+    }
+
     return { success: true, message: "Pharmacy created", data: { pharmacy: { _id: snap.id, ...snap.data() } } } as const;
   } catch (error) {
     handleServiceError(error, "Failed to create pharmacy");
