@@ -110,7 +110,7 @@ export const getPurchaseOrders = async (params?: {
   endDate?: string;
 }) => {
   try {
-    const col = firestore.collection(firestore.db, "purchaseOrders");
+    const col = firestore.collection(firestore.db, "purchases");
     const { pharmacyId } = getTenantMeta();
     const q = pharmacyId ? firestore.fbQuery(col, firestore.where("pharmacyId", "==", pharmacyId)) : firestore.fbQuery(col);
     const snap = await firestore.getDocs(q);
@@ -138,7 +138,7 @@ export const getPurchaseOrders = async (params?: {
       },
     });
 
-    return { success: true, data: { purchaseOrders: items, pagination: { current: params?.page ?? 1, pages, total } } } as const;
+    return { success: true, data: { purchases: items, pagination: { current: params?.page ?? 1, pages, total } } } as const;
   } catch (error) {
     handleServiceError(error, "Failed to fetch purchase orders");
   }
@@ -146,7 +146,7 @@ export const getPurchaseOrders = async (params?: {
 
 export const getPurchaseOrderById = async (id: string) => {
   try {
-    const ref = firestore.doc(firestore.db, "purchaseOrders", id);
+    const ref = firestore.doc(firestore.db, "purchases", id);
     const snap = await firestore.getDoc(ref);
     if (!snap.exists()) throw new ApiError(404, "Purchase order not found");
     return { success: true, data: { purchaseOrder: { _id: snap.id, ...snap.data() } } } as const;
@@ -157,7 +157,7 @@ export const getPurchaseOrderById = async (id: string) => {
 
 export const createPurchaseOrder = async (data: any) => {
   try {
-    const col = firestore.collection(firestore.db, "purchaseOrders");
+    const col = firestore.collection(firestore.db, "purchases");
     const { createdBy, adminId, pharmacyId } = getTenantMeta();
     const created = await firestore.addDoc(col, { ...data, createdAt: new Date().toISOString(), createdBy, adminId, pharmacyId });
     const snap = await firestore.getDoc(created);
@@ -167,9 +167,143 @@ export const createPurchaseOrder = async (data: any) => {
   }
 };
 
+/**
+ * Create or increment a product and record a corresponding purchase transaction atomically.
+ * If a product with the same SKU exists (within the same pharmacyId), its currentStock is increased.
+ * Otherwise, a new product is created with the provided details.
+ */
+export const createOrIncrementProductWithPurchase = async (payload: {
+  name: string;
+  sku: string;
+  category: string;
+  barcode?: string;
+  description?: string;
+  quantity: number; // purchased quantity
+  unitPrice?: number; // selling price
+  costPrice?: number; // purchase cost
+  expiryDate?: string | null;
+  batchNumber?: string | null;
+  location?: string | null;
+  row?: string | null;
+  status?: string;
+  invoiceNumber?: string | null;
+  orderDate?: string | null;
+  receivedAt?: string | null;
+  categoryId?: string | undefined;
+  categoryName?: string | undefined;
+}) => {
+  try {
+    const productsCol = firestore.collection(firestore.db, "products");
+    const purchasesCol = firestore.collection(firestore.db, "purchases");
+    const { createdBy, adminId, pharmacyId } = getTenantMeta();
+
+    if (!payload?.sku || !payload?.name) throw new ApiError(400, "Product name and SKU are required");
+    const quantity = Number(payload.quantity || 0);
+    if (quantity <= 0) throw new ApiError(400, "Quantity must be greater than 0");
+
+    // Find existing product (by SKU scoped to pharmacy)
+    const q = pharmacyId
+      ? firestore.fbQuery(productsCol, firestore.where("pharmacyId", "==", pharmacyId), firestore.where("sku", "==", payload.sku))
+      : firestore.fbQuery(productsCol, firestore.where("sku", "==", payload.sku));
+    const existingSnap = await firestore.getDocs(q);
+    const existingDoc = existingSnap.docs[0] ?? null;
+
+    const nowIso = new Date().toISOString();
+
+    // Run a transaction to update/create product and create purchase
+    const result = await firestore.runTransaction(firestore.db, async (tx) => {
+      let productId: string;
+      let newCurrentStock = quantity;
+
+      if (existingDoc) {
+        const ref = firestore.doc(firestore.db, "products", existingDoc.id);
+        const snap = await tx.get(ref as any);
+        const snapData = (snap.data() as any) || {};
+        const currentStock = Number(snapData.currentStock ?? 0);
+        newCurrentStock = currentStock + quantity;
+        const productUpdate: any = {
+          currentStock: newCurrentStock,
+          updatedAt: nowIso,
+        };
+        // If category provided, update product category to keep in sync
+        const providedCategory = payload.categoryName || payload.category || undefined;
+        if (providedCategory && String(providedCategory).length > 0) {
+          productUpdate.category = providedCategory;
+        }
+        tx.update(ref as any, productUpdate);
+        productId = existingDoc.id;
+      } else {
+        const newRef = firestore.doc(productsCol as any);
+        productId = newRef.id;
+        tx.set(newRef as any, {
+          name: payload.name,
+          sku: payload.sku,
+          category: payload.category || payload.categoryName || "",
+          barcode: payload.barcode ?? "",
+          description: payload.description ?? "",
+          currentStock: quantity,
+          minStock: 0,
+          maxStock: 0,
+          unitPrice: Number(payload.unitPrice ?? 0),
+          costPrice: Number(payload.costPrice ?? 0),
+          // supplier fields intentionally omitted
+          expiryDate: payload.expiryDate ?? "",
+          batchNumber: payload.batchNumber ?? "",
+          location: payload.location ?? "",
+          row: payload.row ?? "",
+          status: payload.status ?? "active",
+          createdAt: nowIso,
+          createdBy,
+          adminId,
+          pharmacyId,
+        } as any);
+      }
+
+      const totalCost = Number(payload.unitPrice ?? payload.costPrice ?? 0) * quantity;
+      const purchaseRef = firestore.doc(purchasesCol as any);
+      const purchaseData: any = {
+        productId,
+        productName: payload.name,
+        sku: payload.sku,
+        quantity,
+        unitPrice: Number(payload.unitPrice ?? payload.costPrice ?? 0),
+        totalCost,
+        invoiceNumber: payload.invoiceNumber ?? undefined,
+        batchNumber: payload.batchNumber ?? undefined,
+        expiryDate: payload.expiryDate ?? undefined,
+        categoryId: payload.categoryId ?? undefined,
+        categoryName: payload.categoryName ?? (payload.category || undefined),
+        orderDate: payload.orderDate ?? nowIso,
+        receivedAt: payload.receivedAt ?? undefined,
+        createdAt: nowIso,
+        createdBy,
+        adminId,
+        pharmacyId,
+        receivedBy: undefined,
+      };
+      // Ensure we always persist a resolved categoryName when any category hint is present
+      if (!purchaseData.categoryName && payload.category) {
+        purchaseData.categoryName = payload.category;
+      }
+      Object.keys(purchaseData).forEach((k) => {
+        if (purchaseData[k as keyof typeof purchaseData] === undefined) {
+          delete purchaseData[k as keyof typeof purchaseData];
+        }
+      });
+      tx.set(purchaseRef as any, purchaseData);
+
+      return { productId, newCurrentStock } as const;
+    });
+
+    return { success: true, message: "Product updated and purchase recorded", data: result } as const;
+  } catch (error) {
+    handleServiceError(error, "Failed to add product purchase");
+  }
+};
+
 export const updatePurchaseOrder = async (id: string, data: any) => {
   try {
-    const ref = firestore.doc(firestore.db, "purchaseOrders", id);
+    const ref = firestore.doc(firestore.db, "purchases", id);
     await firestore.updateDoc(ref, { ...data, updatedAt: new Date().toISOString() });
     const snap = await firestore.getDoc(ref);
     return { success: true, message: "Purchase order updated", data: { purchaseOrder: { _id: snap.id, ...snap.data() } } } as const;
@@ -180,7 +314,7 @@ export const updatePurchaseOrder = async (id: string, data: any) => {
 
 export const receivePurchaseOrder = async (id: string, data: any) => {
   try {
-    const ref = firestore.doc(firestore.db, "purchaseOrders", id);
+    const ref = firestore.doc(firestore.db, "purchases", id);
     await firestore.updateDoc(ref, { ...data, status: data?.status ?? "received", updatedAt: new Date().toISOString() });
     const snap = await firestore.getDoc(ref);
     return { success: true, message: "Purchase order received", data: { purchaseOrder: { _id: snap.id, ...snap.data() } } } as const;
@@ -191,7 +325,7 @@ export const receivePurchaseOrder = async (id: string, data: any) => {
 
 export const approvePurchaseOrder = async (id: string) => {
   try {
-    const ref = firestore.doc(firestore.db, "purchaseOrders", id);
+    const ref = firestore.doc(firestore.db, "purchases", id);
     await firestore.updateDoc(ref, { status: "confirmed", updatedAt: new Date().toISOString() });
     const snap = await firestore.getDoc(ref);
     return { success: true, message: "Purchase order approved", data: { purchaseOrder: { _id: snap.id, ...snap.data() } } } as const;
@@ -202,7 +336,7 @@ export const approvePurchaseOrder = async (id: string) => {
 
 export const deletePurchaseOrder = async (id: string) => {
   try {
-    const ref = firestore.doc(firestore.db, "purchaseOrders", id);
+    const ref = firestore.doc(firestore.db, "purchases", id);
     await firestore.deleteDoc(ref);
     return { success: true, message: "Purchase order deleted" } as const;
   } catch (error) {
@@ -212,7 +346,7 @@ export const deletePurchaseOrder = async (id: string) => {
 
 export const getPurchaseStats = async (params?: { startDate?: string; endDate?: string }) => {
   try {
-    const col = firestore.collection(firestore.db, "purchaseOrders");
+    const col = firestore.collection(firestore.db, "purchases");
     const snap = await firestore.getDocs(firestore.fbQuery(col));
     const rows = snap.docs.map((d) => ({ _id: d.id, ...d.data() } as any));
     const rangeFiltered = rows.filter((it) => {
