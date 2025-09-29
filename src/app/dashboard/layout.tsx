@@ -15,7 +15,8 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArchiveBoxIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  ArrowLeftOnRectangleIcon
 } from "@heroicons/react/24/outline"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -233,8 +234,9 @@ export default function DashboardLayout({
                 }
               }}
               disabled={isLoggingOut}
-              className="w-full inline-flex items-center justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-70"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-70"
             >
+              <ArrowLeftOnRectangleIcon className="h-5 w-5" />
               {isLoggingOut ? 'Logging out...' : 'Logout'}
             </button>
           </div>
