@@ -7,6 +7,8 @@ import {
   ArrowsUpDownIcon,
   ExclamationTriangleIcon,
   ClockIcon,
+  PencilIcon,
+  TrashIcon,
   ArchiveBoxIcon,
   ChartBarIcon,
   PrinterIcon,
@@ -21,9 +23,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/authContext"
 import { usePermissions } from "@/lib/usePermissions"
-import { useProductsQuery, useCategoriesQuery, useCreateCategory } from "@/app/api/products"
+import { useProductsQuery, useCategoriesQuery, useCreateCategory, useDeleteProduct } from "@/app/api/products"
 import { formatCurrency, notify, exportElementToPDF } from "@/lib/utils"
 import StockAdjustmentModal from "@/components/modal/inventory/StockAdjustmentModal"
+import EditProductModal from "@/components/modal/purchases/EditProductModal"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import AddCategoryModal from "@/components/modal/purchases/AddCategoryModal"
 
 interface Product {
@@ -67,6 +71,7 @@ export default function InventoryPage() {
   const { data: products = [] } = useProductsQuery({})
   const { data: categoriesList = [] } = useCategoriesQuery(true)
   const { mutateAsync: createCategory } = useCreateCategory()
+  const { mutateAsync: deleteProduct, isPending: deleting } = useDeleteProduct()
   
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -74,6 +79,9 @@ export default function InventoryPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [showStockAdjustment, setShowStockAdjustment] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [showEditProduct, setShowEditProduct] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState("all")
   const [lowStockOnly, setLowStockOnly] = useState(false)
   const [expiringSoon, setExpiringSoon] = useState(false)
@@ -92,26 +100,28 @@ export default function InventoryPage() {
   const categories = ["all", ...(categoriesList as any[]).map((cat: any) => cat.name)]
 
   const filteredProducts = (products as any[]).filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.barcode.includes(searchTerm) ||
-                         product.supplier.toLowerCase().includes(searchTerm.toLowerCase())
+    const name = String(product?.name || "").toLowerCase()
+    const sku = String(product?.sku || "").toLowerCase()
+    const supplier = String(product?.supplier || "").toLowerCase()
+    const barcode = String(product?.barcode || "")
+    const q = (searchTerm || "").toLowerCase()
+    const matchesSearch = name.includes(q) || sku.includes(q) || barcode.includes(searchTerm || "") || supplier.includes(q)
     
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
     const matchesStatus = filterStatus === "all" || product.status === filterStatus
-    const matchesLowStock = !lowStockOnly || product.currentStock <= product.minStock
-    const matchesExpiring = !expiringSoon || (mounted && new Date(product.expiryDate) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
+    const matchesLowStock = !lowStockOnly || Number(product?.currentStock ?? 0) <= Number(product?.minStock ?? -1)
+    const matchesExpiring = !expiringSoon || (mounted && (product?.expiryDate ? new Date(product.expiryDate) : new Date(8640000000000000)) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
     
     return matchesSearch && matchesCategory && matchesStatus && matchesLowStock && matchesExpiring
   })
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    let aValue = a[sortBy as keyof Product]
-    let bValue = b[sortBy as keyof Product]
+    let aValue: any = (a as any)[sortBy as keyof Product]
+    let bValue: any = (b as any)[sortBy as keyof Product]
     
     if (typeof aValue === 'string') {
-      aValue = aValue.toLowerCase()
-      bValue = (bValue as string).toLowerCase()
+      aValue = (aValue || '').toLowerCase()
+      bValue = String(bValue || '').toLowerCase()
     }
     
     if (sortOrder === "asc") {
@@ -158,6 +168,24 @@ export default function InventoryPage() {
   const handleStockAdjustment = (product: any) => {
     setSelectedProduct(product)
     setShowStockAdjustment(true)
+  }
+
+  const handleEditProduct = (product: any) => {
+    setSelectedProduct(product)
+    setShowEditProduct(true)
+  }
+
+  const handleDeleteProduct = (productId: string) => {
+    setDeleteTargetId(productId)
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return
+    await deleteProduct(deleteTargetId)
+    notify.success('Product deleted')
+    setShowDeleteConfirm(false)
+    setDeleteTargetId(null)
   }
 
   const handleAddCategory = async (name: string) => {
@@ -352,6 +380,16 @@ export default function InventoryPage() {
                           <div className="flex items-center space-x-2">
                             <span className="text-sm">{movement.expiryDate ? new Date(movement.expiryDate).toISOString().split('T')[0] : '-'}</span>
                             <Badge variant={expiry.color as any} className="text-xs">{expiry.text}</Badge>
+                            {isAdmin && (
+                              <div className="flex items-center gap-1 ml-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEditProduct(movement)}>
+                                  <PencilIcon className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleDeleteProduct((movement as any)._id || (movement as any).id)}>
+                                  <TrashIcon className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                     </TableRow>
@@ -475,6 +513,29 @@ export default function InventoryPage() {
         onOpenChange={setShowStockAdjustment}
         product={selectedProduct}
       />
+
+      <EditProductModal
+        open={showEditProduct}
+        onOpenChange={setShowEditProduct}
+        product={selectedProduct}
+        categoriesList={categoriesList as any[]}
+        suppliersList={[]}
+        onAddCategory={handleAddCategory}
+        onAddSupplier={async () => {}}
+      />
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Product</DialogTitle>
+            <DialogDescription>Are you sure you want to delete this product? This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+            <Button onClick={confirmDelete} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AddCategoryModal
         open={showAddCategoryModal}
