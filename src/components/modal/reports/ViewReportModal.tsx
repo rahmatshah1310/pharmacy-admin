@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { exportToCSV, printElementById } from "@/lib/utils"
+import { exportElementToPDF, printElementById } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { 
   ChartBarIcon, 
@@ -134,12 +134,9 @@ export default function ViewReportModal({
                   <ChartBarIcon className="h-4 w-4 mr-2" />
                   Generate Now
                 </Button>
-                <Button variant="outline" className="w-full" onClick={() => {
-                  if (!report) return
-                  exportToCSV([report as any], `${report.name || 'report'}.csv`)
-                }}>
+                <Button variant="outline" className="w-full" onClick={() => exportElementToPDF('report-preview', (report?.name || 'Report') + '.pdf') }>
                   <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                  Download
+                  Download PDF
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => printElementById('report-preview', 'Report Preview')}>
                   <PrinterIcon className="h-4 w-4 mr-2" />
