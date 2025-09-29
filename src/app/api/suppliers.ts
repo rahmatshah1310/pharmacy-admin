@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSuppliers, getSuppliersSimple, createSupplier } from "@/services/suppliers.service";
+import { getSuppliers, getSuppliersSimple, createSupplier, updateSupplier, deleteSupplier } from "@/services/suppliers.service";
 
 export const useSuppliersQuery = (enabled: boolean = true) =>
   useQuery({
@@ -29,6 +29,31 @@ export const useCreateSupplier = () => {
     mutationFn: (payload: any) => createSupplier(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["suppliers"] });
+      qc.invalidateQueries({ queryKey: ["suppliers", "all"] });
+      qc.invalidateQueries({ queryKey: ["suppliers", "simple"] });
+    },
+  });
+};
+
+export const useUpdateSupplier = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { id: string; data: any }) => updateSupplier(payload.id, payload.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      qc.invalidateQueries({ queryKey: ["suppliers", "all"] });
+      qc.invalidateQueries({ queryKey: ["suppliers", "simple"] });
+    },
+  });
+};
+
+export const useDeleteSupplier = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteSupplier(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      qc.invalidateQueries({ queryKey: ["suppliers", "all"] });
       qc.invalidateQueries({ queryKey: ["suppliers", "simple"] });
     },
   });
