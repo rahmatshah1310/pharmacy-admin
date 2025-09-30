@@ -12,6 +12,7 @@ import {
   type CreateSaleData,
   type Sale
 } from "@/services/sales.service";
+import { updateSaleItemStatus, deleteSaleItem } from "@/services/sales.service";
 
 // Create sale hook
 export const useCreateSale = () => {
@@ -42,6 +43,33 @@ export const useGetSaleById = (saleId: string) => {
     queryFn: () => getSaleById(saleId),
     enabled: !!saleId,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+// Update single sale item status
+export const useUpdateSaleItemStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ saleId, productId, status }: { saleId: string; productId: string; status: 'completed' | 'refunded' }) =>
+      updateSaleItemStatus(saleId, productId, status),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["sales", "single", vars.saleId] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["sales", "stats"] });
+    }
+  });
+};
+
+// Delete single sale item
+export const useDeleteSaleItem = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ saleId, productId }: { saleId: string; productId: string }) => deleteSaleItem(saleId, productId),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["sales", "single", vars.saleId] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["sales", "stats"] });
+    }
   });
 };
 
