@@ -27,6 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import DeleteSaleModal from "@/components/modal/sales/DeleteSaleModal";
+import ViewSaleModal from "@/components/modal/sales/ViewSaleModal";
 import { useAuth } from "@/lib/authContext";
 import { usePermissions } from "@/lib/usePermissions";
 import { useRouter } from "next/navigation";
@@ -45,6 +46,7 @@ export default function SalesPage() {
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<{ id: string; total: number } | null>(null);
+  const [viewSaleId, setViewSaleId] = useState<string | null>(null);
 
   // Auth and permissions
   const { user } = useAuth();
@@ -150,6 +152,7 @@ export default function SalesPage() {
     const searchLower = searchQuery.toLowerCase();
     return (
       (sale._id || '').toLowerCase().includes(searchLower) ||
+      (sale.receiptId || '').toLowerCase().includes(searchLower) ||
       sale.items.some(item => (item.name || '').toLowerCase().includes(searchLower)) ||
       (sale.paymentMethod || '').toLowerCase().includes(searchLower) ||
       (sale.customerId && sale.customerId.toLowerCase().includes(searchLower)) ||
@@ -158,7 +161,7 @@ export default function SalesPage() {
   }).filter(sale => {
     if (paymentMethodFilter === "all") return true;
     return (sale.paymentMethod || '').toLowerCase() === paymentMethodFilter.toLowerCase();
-  }) || [];
+  }).filter(sale => (sale.items?.length || 0) > 0) || [];
 
   return (
     <div className="p-6">
@@ -227,7 +230,7 @@ export default function SalesPage() {
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   className="pl-10 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none"
-                  placeholder="Search by sale ID, product name, customer, payment method, or notes..."
+                  placeholder="Search by receipt ID, product name, customer, payment method, or notes..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -282,7 +285,7 @@ export default function SalesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>S.No</TableHead>
-                <TableHead>Sale ID</TableHead>
+                <TableHead>Receipt ID</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Payment</TableHead>
@@ -310,7 +313,7 @@ export default function SalesPage() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium">#{sale._id.slice(-8)}</p>
+                      <p className="font-medium">#{sale.receiptId || sale._id.slice(-8)}</p>
                       {sale.notes && (
                         <p className="text-xs text-gray-500 truncate max-w-[200px]">{sale.notes}</p>
                       )}
@@ -356,7 +359,7 @@ export default function SalesPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={() => {/* View sale details */}}>
+                      <Button size="sm" variant="outline" onClick={() => setViewSaleId(sale._id)}>
                         <EyeIcon className="h-4 w-4" />
                       </Button>
                       <Select 
@@ -419,6 +422,13 @@ export default function SalesPage() {
         saleId={saleToDelete?.id}
         saleTotal={saleToDelete?.total}
         isDeleting={deleteSaleMutation.isPending}
+      />
+
+      {/* View Sale Modal */}
+      <ViewSaleModal
+        open={!!viewSaleId}
+        onOpenChange={(o) => { if (!o) setViewSaleId(null) }}
+        saleId={viewSaleId}
       />
     </div>
   );
