@@ -113,6 +113,7 @@ export interface SaleItem {
   name: string;
   price: number;
   quantity: number;
+  status?: 'completed' | 'refunded';
 }
 
 export interface Sale {
@@ -125,6 +126,7 @@ export interface Sale {
   tax: number;
   total: number;
   notes?: string;
+  receiptId?: string;
   createdAt: string;
   status: 'completed' | 'pending' | 'cancelled' | 'refunded';
 }
@@ -135,6 +137,7 @@ export interface CreateSaleData {
   paymentMethod: string;
   discount?: number;
   notes?: string;
+  receiptId?: string;
 }
 
 export interface SalesResponse {
@@ -405,13 +408,14 @@ export const createSale = async (data: CreateSaleData): Promise<SalesResponse> =
     const total = data.items.reduce((sum, it) => sum + it.price * it.quantity, 0);
     const sale = {
       customerId: data.customerId || null,
-      items: data.items,
+      items: data.items.map((it) => ({ ...it, status: 'completed' as const })),
       paymentMethod: data.paymentMethod,
       discount: data.discount || 0,
       subtotal: total,
       tax: 0,
       total: +(total - (data.discount ? total * (data.discount / 100) : 0)).toFixed(2),
       notes: data.notes || "",
+      receiptId: data.receiptId || null,
       createdAt: new Date().toISOString(),
       status: "completed" as const,
     };
@@ -430,5 +434,117 @@ export const createSale = async (data: CreateSaleData): Promise<SalesResponse> =
     };
   } catch (error) {
     handleServiceError(error, "Failed to record sale");
+  }
+};
+
+// Update status for a single sale item and adjust stock accordingly
+export const updateSaleItemStatus = async (
+  saleId: string,
+  productId: string,
+  status: 'completed' | 'refunded'
+): Promise<SalesResponse> => {
+  try {
+    const docRef = firestore.doc(firestore.db, "sales", saleId);
+    const snap = await firestore.getDoc(docRef);
+    if (!snap.exists()) throw new ApiError(404, 'Sale not found');
+    const sale = { _id: snap.id, ...snap.data() } as Sale;
+
+    const items = (sale.items || []) as SaleItem[];
+    const idx = items.findIndex((it) => it.productId === productId);
+    if (idx === -1) throw new ApiError(404, 'Sale item not found');
+
+    const current = items[idx];
+    const prevStatus = (current.status || 'completed') as 'completed' | 'refunded';
+    if (prevStatus !== status) {
+      if (status === 'refunded') {
+        // add stock back
+        await updateProductStock(current.productId, Math.abs(current.quantity), 'increment');
+        await createStockMovement({
+          productId: current.productId,
+          productName: current.name,
+          type: 'in',
+          quantity: Math.abs(current.quantity),
+          reason: 'Refund',
+          reference: `Sale #${sale._id}`,
+          user: 'system'
+        });
+      } else if (status === 'completed') {
+        // remove stock again
+        await updateProductStock(current.productId, Math.abs(current.quantity), 'decrement');
+        await createStockMovement({
+          productId: current.productId,
+          productName: current.name,
+          type: 'out',
+          quantity: Math.abs(current.quantity),
+          reason: 'Sale',
+          reference: `Sale #${sale._id}`,
+          user: 'system'
+        });
+      }
+    }
+
+    items[idx] = { ...current, status };
+
+    // Recompute subtotal/total based on completed items only
+    const subtotal = items
+      .filter((it) => (it.status || 'completed') === 'completed')
+      .reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+    const discountPct = sale.discount ? Number(sale.discount) : 0;
+    const total = +(subtotal - (discountPct ? subtotal * (discountPct / 100) : 0)).toFixed(2);
+
+    await firestore.updateDoc(docRef, { items, subtotal, total });
+
+    return { success: true, message: 'Sale item status updated', data: { sale: { ...sale, items, subtotal, total } as any } };
+  } catch (error) {
+    handleServiceError(error, 'Failed to update sale item status');
+  }
+};
+
+// Delete a single sale item, adjust stock if necessary, and recompute totals
+export const deleteSaleItem = async (
+  saleId: string,
+  productId: string
+): Promise<SalesResponse> => {
+  try {
+    const docRef = firestore.doc(firestore.db, "sales", saleId);
+    const snap = await firestore.getDoc(docRef);
+    if (!snap.exists()) throw new ApiError(404, 'Sale not found');
+    const sale = { _id: snap.id, ...snap.data() } as Sale;
+
+    const items = (sale.items || []) as SaleItem[];
+    const idx = items.findIndex((it) => it.productId === productId);
+    if (idx === -1) throw new ApiError(404, 'Sale item not found');
+    const removed = items[idx];
+
+    // If the item was completed, restore stock
+    if ((removed.status || 'completed') === 'completed') {
+      await updateProductStock(removed.productId, Math.abs(removed.quantity), 'increment');
+      await createStockMovement({
+        productId: removed.productId,
+        productName: removed.name,
+        type: 'in',
+        quantity: Math.abs(removed.quantity),
+        reason: 'Delete Sale Item',
+        reference: `Sale #${sale._id}`,
+        user: 'system'
+      });
+    }
+
+    const newItems = items.filter((it) => it.productId !== productId);
+    const subtotal = newItems
+      .filter((it) => (it.status || 'completed') === 'completed')
+      .reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+    const discountPct = sale.discount ? Number(sale.discount) : 0;
+    const total = +(subtotal - (discountPct ? subtotal * (discountPct / 100) : 0)).toFixed(2);
+
+    // If no items remain, mark sale as refunded and ensure totals are zero
+    const status: Sale['status'] = newItems.length === 0 ? 'refunded' : sale.status;
+    const safeSubtotal = newItems.length === 0 ? 0 : subtotal;
+    const safeTotal = newItems.length === 0 ? 0 : total;
+    await firestore.updateDoc(docRef, { items: newItems, subtotal: safeSubtotal, total: safeTotal, status });
+
+    return { success: true, message: 'Sale item deleted', data: { sale: { ...sale, items: newItems, subtotal: safeSubtotal, total: safeTotal, status } as any } };
+  } catch (error) {
+    handleServiceError(error, 'Failed to delete sale item');
   }
 };
