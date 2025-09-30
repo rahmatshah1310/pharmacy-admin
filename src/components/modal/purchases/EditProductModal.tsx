@@ -12,9 +12,7 @@ interface EditProductModalProps {
   onOpenChange: (open: boolean) => void
   product: any | null
   categoriesList: any[]
-  suppliersList: any[]
   onAddCategory: (name: string) => Promise<any>
-  onAddSupplier: (name: string) => Promise<any>
 }
 
 export default function EditProductModal({
@@ -22,9 +20,8 @@ export default function EditProductModal({
   onOpenChange,
   product,
   categoriesList,
-  suppliersList,
   onAddCategory,
-  onAddSupplier
+  
 }: EditProductModalProps) {
   const { mutateAsync: updateProduct, isPending: updating } = useUpdateProduct()
   
@@ -42,7 +39,6 @@ export default function EditProductModal({
       unitPrice: 0,
       costPrice: 0,
       row: "",
-      supplier: "",
       expiryDate: "",
       batchNumber: "",
       location: "",
@@ -64,7 +60,6 @@ export default function EditProductModal({
         unitPrice: Number(product.unitPrice ?? product.price ?? 0),
         costPrice: Number(product.costPrice ?? 0),
         row: product.row ?? "",
-        supplier: product.supplier || "",
         expiryDate: product.expiryDate ? String(product.expiryDate).substring(0,10) : "",
         batchNumber: product.batchNumber || "",
         location: product.location || "",
@@ -101,9 +96,7 @@ export default function EditProductModal({
             form={form}
             onSubmit={handleSubmit}
             categoriesList={categoriesList}
-            suppliersList={suppliersList}
             onAddCategory={onAddCategory}
-            onAddSupplier={onAddSupplier}
             isSubmitting={updating}
             submitButtonText={updating ? 'Updating...' : 'Update Product'}
             onCancel={() => onOpenChange(false)}
