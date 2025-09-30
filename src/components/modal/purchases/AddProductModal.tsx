@@ -75,7 +75,6 @@ export default function AddProductModal({
         quantity: Number(values.currentStock || 0) || 0,
         unitPrice: values.unitPrice,
         costPrice: values.costPrice,
-        supplier: (values as any).supplier || null,
         expiryDate: values.expiryDate || null,
         batchNumber: values.batchNumber || null,
         location: values.location || null,
