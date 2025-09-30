@@ -519,9 +519,7 @@ export default function InventoryPage() {
         onOpenChange={setShowEditProduct}
         product={selectedProduct}
         categoriesList={categoriesList as any[]}
-        suppliersList={[]}
         onAddCategory={handleAddCategory}
-        onAddSupplier={async () => {}}
       />
 
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
