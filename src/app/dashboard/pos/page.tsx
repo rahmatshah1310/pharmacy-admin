@@ -229,12 +229,16 @@ export default function POSPage() {
       return
     }
 
+    // Generate human-friendly 4-digit receipt ID (1000-9999)
+    const receiptId = String(Math.floor(1000 + Math.random() * 9000))
+
     const promise = createSale({
       customerId: selectedCustomer?.id,
       items: cart.map(it => ({ productId: it.id, name: it.name, price: it.price, quantity: it.quantity })),
       paymentMethod,
       discount,
       notes,
+      receiptId,
     })
     notify.promise(promise, {
       loading: 'Processing payment...',
@@ -261,7 +265,7 @@ export default function POSPage() {
     try {
       const sale = (result as any)?.data?.sale
       printPosReceipt({
-        _id: sale?._id,
+        _id: sale?.receiptId || sale?._id,
         items: cart.map(it => ({ name: it.name, price: it.price, quantity: it.quantity })),
         subtotal: Number(getSubtotal()),
         discount,
