@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { notify } from "@/lib/utils"
-import { useSignup, useLogout } from "@/app/api/authApi"
+import { useSignup } from "@/app/api/authApi"
 import Link from "next/link"
 
 const signupSchema = z.object({
@@ -28,7 +28,6 @@ type SignupSchema = z.infer<typeof signupSchema>
 export default function SignupPage() {
   const router = useRouter()
   const { mutateAsync: signup, isPending } = useSignup()
-  const { mutateAsync: logout } = useLogout()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const { register, handleSubmit, formState: { errors }, reset } = useForm<SignupSchema>({
@@ -83,14 +82,17 @@ export default function SignupPage() {
       }
       
       await signup(signupData)
-      notify.success("Account created successfully! Please log in to continue.")
+      notify.success("Account created successfully!")
       reset()
-      
-      // Sign out the user after successful signup so they can be redirected to login
-      await logout()
-      
-      // After successful signup, persist user should go to login, not dashboard
-      router.push("/login")
+
+      // If signup signs the user in, send to dashboard. Otherwise, send to login.
+      try {
+        const authData = window.localStorage.getItem("pc_auth")
+        const isSignedIn = !!authData
+        router.push(isSignedIn ? "/dashboard" : "/login")
+      } catch {
+        router.push("/login")
+      }
     } catch (err: any) {
       notify.error(err?.message || "Failed to create account")
     }
