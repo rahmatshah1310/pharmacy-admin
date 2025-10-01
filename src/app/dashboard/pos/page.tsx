@@ -94,6 +94,8 @@ export default function POSPage() {
     mutationFn: (payload: any) => createSaleService(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] })
+      qc.invalidateQueries({ queryKey: ["sales"] })
+      qc.invalidateQueries({ queryKey: ["sales", "stats"] })
     }
   })
 
