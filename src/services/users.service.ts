@@ -89,7 +89,7 @@ export const getUserById = async (uid: string) => {
 
 // saveUser removed; add-user flow no longer supported
 
-export const updateUser = async (uid: string, updates: Partial<{ displayName: string; role: "admin" | "user"; permissions: Record<string, boolean>; disabled: boolean }>) => {
+export const updateUser = async (uid: string, updates: Partial<{ displayName: string; email: string; pharmacyName: string; role: "admin" | "user"; permissions: string[]; disabled: boolean }>) => {
   try {
     // First check if user exists and belongs to the same pharmacy
     const userRef = firestore.doc(firestore.db, "users", uid);
@@ -104,7 +104,14 @@ export const updateUser = async (uid: string, updates: Partial<{ displayName: st
       throw new ApiError(403, "Access denied: Cannot update user from different pharmacy");
     }
     
-    await firestore.setDoc(userRef, { ...updates, updatedAt: new Date().toISOString() }, { merge: true } as any);
+    // Normalize permissions to a string array if provided
+    const payload: any = { ...updates, updatedAt: new Date().toISOString() };
+    if (payload.permissions && !Array.isArray(payload.permissions)) {
+      try {
+        payload.permissions = Object.keys(payload.permissions).filter((k) => !!payload.permissions[k]);
+      } catch {}
+    }
+    await firestore.setDoc(userRef, payload, { merge: true } as any);
     const snap = await firestore.getDoc(userRef);
     return { success: true, message: "User updated", data: { user: { _id: snap.id, ...snap.data() } } } as const;
   } catch (error) {
