@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { auth, db, onAuthStateChanged, doc, getDoc } from "@/firebase";
+import { auth, db, onAuthStateChanged, doc, getDoc, onSnapshot } from "@/firebase";
 
 export type AppUser = {
     uid: string;
@@ -55,11 +55,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 			}
 		} catch {}
 		setLoading(true);
-		const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+        let unsubProfile: null | (() => void) = null;
+        let unsubPharmacy: null | (() => void) = null;
+        const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
 			if (!firebaseUser) {
 				setUser(null);
 				try { window.localStorage.removeItem("pc_auth"); } catch {}
 				try { if (typeof document !== "undefined") document.cookie = "pc_role=; path=/; max-age=0"; } catch {}
+                if (unsubProfile) { try { unsubProfile(); } catch {} }
+                unsubProfile = null;
+                if (unsubPharmacy) { try { unsubPharmacy(); } catch {} }
+                unsubPharmacy = null;
 				setLoading(false);
 				return;
 			}
@@ -79,13 +85,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				if (firebaseUser.email && firebaseUser.email.toLowerCase() === adminEmail) {
 					role = "admin";
 				}
-				const displayName = profile.displayName ?? firebaseUser.displayName ?? null;
-				const phone = profile.phone ?? firebaseUser.phoneNumber ?? null;
+                const displayName = profile.displayName ?? profile.name ?? firebaseUser.displayName ?? null;
+                const phone = profile.phone ?? firebaseUser.phoneNumber ?? null;
                 // Determine tenancy identifiers
                 const adminId = role === "admin" ? firebaseUser.uid : (profile.adminId ?? null);
                 const pharmacyId = profile.pharmacyId ?? null;
                 const pharmacyName = profile.pharmacyName ?? null;
-                const appUser: AppUser = { uid: firebaseUser.uid, email: firebaseUser.email, displayName, role, phone, adminId, pharmacyId, pharmacyName };
+                const appUser: AppUser = { uid: firebaseUser.uid, email: profile.email ?? firebaseUser.email, displayName, role, phone, adminId, pharmacyId, pharmacyName };
 				setUser(appUser);
 				// Persist minimal user and token for guards
 				try {
@@ -109,6 +115,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 					// Write role cookie for middleware-based route protection
 					if (typeof document !== "undefined") document.cookie = `pc_role=${role}; path=/; max-age=${60 * 60 * 8}`;
 				} catch {}
+
+                // Subscribe to realtime user profile updates to keep UI in sync
+                if (unsubProfile) { try { unsubProfile(); } catch {} }
+                unsubProfile = onSnapshot(userRef, async (liveSnap) => {
+                    if (!liveSnap.exists()) return;
+                    const live = liveSnap.data() as any;
+                    const liveDisplayName = live.displayName ?? live.name ?? appUser.displayName ?? null;
+                    const nextUser: AppUser = {
+                        uid: appUser.uid,
+                        email: live.email ?? appUser.email ?? null,
+                        displayName: liveDisplayName,
+                        role: appUser.role,
+                        phone: live.phone ?? appUser.phone ?? null,
+                        adminId: live.adminId ?? appUser.adminId ?? null,
+                        pharmacyId: live.pharmacyId ?? appUser.pharmacyId ?? null,
+                        pharmacyName: live.pharmacyName ?? appUser.pharmacyName ?? null,
+                    };
+                    setUser(nextUser);
+                    try {
+                        const idToken = await firebaseUser.getIdToken();
+                        window.localStorage.setItem("pc_auth", JSON.stringify({ user: nextUser, token: idToken }));
+                        if (nextUser.role === "admin" || nextUser.role === "super-admin") {
+                            const adminInfo = {
+                                uid: nextUser.uid,
+                                adminId: nextUser.adminId,
+                                pharmacyId: nextUser.pharmacyId,
+                                pharmacyName: nextUser.pharmacyName,
+                                email: nextUser.email,
+                                displayName: nextUser.displayName,
+                                role: nextUser.role
+                            };
+                            window.localStorage.setItem("pc_admin_info", JSON.stringify(adminInfo));
+                        }
+                    } catch {}
+                    // Subscribe to pharmacy doc if available to reflect pharmacy name changes
+                    if (unsubPharmacy) { try { unsubPharmacy(); } catch {} }
+                    if (nextUser.pharmacyId) {
+                        const pharmacyRef = doc(db, "pharmacies", nextUser.pharmacyId);
+                        unsubPharmacy = onSnapshot(pharmacyRef, (phSnap) => {
+                            if (!phSnap.exists()) return;
+                            const ph = phSnap.data() as any;
+                            setUser((prev) => prev ? { ...prev, pharmacyName: ph?.name ?? prev.pharmacyName } : prev);
+                            try {
+                                const raw = window.localStorage.getItem("pc_auth");
+                                if (raw) {
+                                    const parsed = JSON.parse(raw);
+                                    parsed.user = { ...(parsed.user || {}), pharmacyName: ph?.name ?? parsed.user?.pharmacyName };
+                                    window.localStorage.setItem("pc_auth", JSON.stringify(parsed));
+                                }
+                                const adminInfoRaw = window.localStorage.getItem("pc_admin_info");
+                                if (adminInfoRaw) {
+                                    const parsed = JSON.parse(adminInfoRaw);
+                                    parsed.pharmacyName = ph?.name ?? parsed.pharmacyName;
+                                    window.localStorage.setItem("pc_admin_info", JSON.stringify(parsed));
+                                }
+                            } catch {}
+                        });
+                    }
+                });
 			} catch (e) {
                 const fallback: AppUser = { uid: firebaseUser.uid, email: firebaseUser.email, displayName: firebaseUser.displayName, role: "admin", phone: firebaseUser.phoneNumber ?? null, adminId: firebaseUser.uid, pharmacyId: null, pharmacyName: null };
 				setUser(fallback);
@@ -135,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				setInitialized(true);
 			}
 		});
-		return () => unsub();
+        return () => { try { unsub(); } catch {}; if (unsubProfile) { try { unsubProfile(); } catch {} } if (unsubPharmacy) { try { unsubPharmacy(); } catch {} } };
 	}, []);
 
 	const value = useMemo<AuthContextValue>(() => {
