@@ -13,7 +13,7 @@ import {
   BuildingOfficeIcon,
 } from "@heroicons/react/24/outline"
 import { useProductsQuery, useDeleteProduct, useCategoriesQuery, useCreateCategory } from "@/app/api/products"
-import { usePurchaseOrdersQuery } from "@/app/api/purchases"
+import { usePurchaseOrdersQuery, useDeletePurchaseOrder } from "@/app/api/purchases"
 import { useSuppliersSimpleQuery, useCreateSupplier } from "@/app/api/suppliers"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +30,7 @@ import AddCategoryModal from "@/components/modal/purchases/AddCategoryModal"
 import AddSupplierModal from "@/components/modal/purchases/AddSupplierModal"
 // import AddProductModal from "@/components/modal/purchases/AddProductModal"
 import AddPurchaseModal from "@/components/modal/purchases/AddPurchaseModal"
+import DeletePurchaseModal from "@/components/modal/purchases/DeletePurchaseModal"
 
 interface Supplier {
   _id: string
@@ -82,8 +83,10 @@ export default function PurchasesPage() {
   const [selectedPurchase, setSelectedPurchase] = useState<any | null>(null)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [showDeletePurchase, setShowDeletePurchase] = useState(false)
+  const [deletePurchaseId, setDeletePurchaseId] = useState<string | null>(null)
+  const [deletePurchaseOrderNumber, setDeletePurchaseOrderNumber] = useState<string | null>(null)
+  const { mutateAsync: deletePurchaseOrder, isPending: deletingPurchase } = useDeletePurchaseOrder()
 
   // Filters (match Inventory UX)
   const [searchTerm, setSearchTerm] = useState("")
@@ -122,17 +125,19 @@ export default function PurchasesPage() {
     return { color: 'success', text: 'Good' }
   }
 
-  const handleDeleteProduct = async (productId: string) => {
-    setDeleteTargetId(productId)
-    setShowDeleteConfirm(true)
+  const handleDeletePurchase = async (purchase: any) => {
+    setDeletePurchaseId(purchase._id || purchase.id)
+    setDeletePurchaseOrderNumber(purchase.orderNumber || null)
+    setShowDeletePurchase(true)
   }
 
-  const confirmDelete = async () => {
-    if (!deleteTargetId) return
-    await deleteProduct(deleteTargetId)
-    notify.success('Product deleted')
-    setShowDeleteConfirm(false)
-    setDeleteTargetId(null)
+  const confirmDeletePurchase = async () => {
+    if (!deletePurchaseId) return
+    await deletePurchaseOrder(deletePurchaseId)
+    notify.success('Purchase deleted')
+    setShowDeletePurchase(false)
+    setDeletePurchaseId(null)
+    setDeletePurchaseOrderNumber(null)
   }
 
   const handleEditPurchase = (purchase: any) => {
@@ -370,6 +375,11 @@ export default function PurchasesPage() {
                                   <PencilIcon className="h-4 w-4" />
                                 </Button>
                               )}
+                              {isAdmin && (
+                                <Button size="sm" variant="outline" onClick={() => handleDeletePurchase(o)}>
+                                  <TrashIcon className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -413,19 +423,13 @@ export default function PurchasesPage() {
         onConfirm={handleAddSupplier}
       />
 
-      {/* Delete confirmation modal */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Delete Product</DialogTitle>
-            <DialogDescription>Are you sure you want to delete this product? This action cannot be undone.</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
-            <Button onClick={confirmDelete} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete'}</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DeletePurchaseModal
+        open={showDeletePurchase}
+        onOpenChange={setShowDeletePurchase}
+        onConfirm={confirmDeletePurchase}
+        isDeleting={deletingPurchase}
+        orderNumber={deletePurchaseOrderNumber}
+      />
     </div>
   )
 }
