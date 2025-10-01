@@ -134,7 +134,7 @@ export default function DashboardLayout({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
               </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">{pharmacy?.name || 'PharmaCare'}</span>
+              <span className="ml-2 text-xl font-bold text-gray-900">{user?.pharmacyName || pharmacy?.name || 'PharmaCare'}</span>
             </div>
             <button
               type="button"
@@ -196,7 +196,7 @@ export default function DashboardLayout({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
               </svg>
             </div>
-            <span className="ml-2 text-xl font-bold text-gray-900">{pharmacy?.name || 'PharmaCare'}</span>
+            <span className="ml-2 text-xl font-bold text-gray-900">{user?.pharmacyName || pharmacy?.name || 'PharmaCare'}</span>
           </div>
           <nav className="mt-8 flex-1 space-y-1 px-2">
             {navigation.map((item) => {
@@ -292,7 +292,7 @@ export default function DashboardLayout({
             <div className="flex items-center space-x-3">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-700">{user?.displayName || user?.email || 'User'}</p>
-                <p className="text-xs text-gray-500 capitalize">{getRoleDisplayName()}</p>
+                <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
               </div>
               <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
                 <span className="text-sm font-medium text-white">
