@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,10 +37,13 @@ export default function LoginPage() {
 
 
   // If already authenticated, send to dashboard
-  if (!loading && user) {
-    if (typeof window !== "undefined") router.replace("/dashboard")
-    return null
-  }
+  useEffect(() => {
+    if (loading) return; // wait until auth finishes
+    if (user) {
+      router.replace("/dashboard")
+    }
+  }, [user, loading, router])
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
