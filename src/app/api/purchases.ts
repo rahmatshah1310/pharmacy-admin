@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getPurchaseOrders, createOrIncrementProductWithPurchase } from "@/services/purchases.service";
+import { getPurchaseOrders, createOrIncrementProductWithPurchase, deletePurchaseOrder } from "@/services/purchases.service";
 
 export const usePurchaseOrdersQuery = (params?: Parameters<typeof getPurchaseOrders>[0]) =>
   useQuery({
@@ -19,6 +19,16 @@ export const useAddPurchaseProduct = () => {
       createOrIncrementProductWithPurchase(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["purchaseOrders"] });
+    },
+  });
+};
+
+export const useDeletePurchaseOrder = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deletePurchaseOrder(id),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchaseOrders"] });
     },
   });
