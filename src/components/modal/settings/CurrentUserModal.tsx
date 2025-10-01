@@ -7,6 +7,8 @@ import { z } from "zod"
 
 const currentUserSchema = z.object({
   displayName: z.string().min(1, "Display name is required"),
+  email: z.string().email("Valid email required").optional(),
+  pharmacyName: z.string().optional(),
 })
 
 type CurrentUserForm = z.infer<typeof currentUserSchema>
@@ -14,7 +16,7 @@ type CurrentUserForm = z.infer<typeof currentUserSchema>
 interface CurrentUserModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  user: { _id: string; email?: string; displayName?: string | null } | null
+  user: { _id: string; email?: string; displayName?: string | null; pharmacyName?: string | null,role?: string } | null
   onUpdateUser: (data: CurrentUserForm & { uid: string }) => void
   isUpdating?: boolean
 }
@@ -24,13 +26,18 @@ export default function CurrentUserModal({ open, onOpenChange, user, onUpdateUse
     resolver: zodResolver(currentUserSchema),
     defaultValues: {
       displayName: user?.displayName || "",
+      email: user?.email || "",
+      pharmacyName: user?.pharmacyName || "",
     },
   })
 
+  console.log(user,"user from current user mdoal")
   // Sync form when user changes
   const displayName = user?.displayName || ""
-  if (form.getValues("displayName") !== displayName) {
-    form.reset({ displayName })
+  const email = user?.email || ""
+  const pharmacyName = user?.pharmacyName || ""
+  if (form.getValues("displayName") !== displayName || form.getValues("email") !== email || form.getValues("pharmacyName") !== pharmacyName) {
+    form.reset({ displayName, email, pharmacyName })
   }
 
   const handleSubmit = (data: CurrentUserForm) => {
@@ -52,7 +59,10 @@ export default function CurrentUserModal({ open, onOpenChange, user, onUpdateUse
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <Input value={user.email || "-"} disabled />
+            <Input placeholder="you@example.com" {...form.register("email")} />
+            {form.formState.errors.email && (
+              <p className="text-xs text-red-600 mt-1">{form.formState.errors.email.message as string}</p>
+            )}
           </div>
 
           <div>
@@ -62,6 +72,16 @@ export default function CurrentUserModal({ open, onOpenChange, user, onUpdateUse
               <p className="text-xs text-red-600 mt-1">{form.formState.errors.displayName.message}</p>
             )}
           </div>
+
+          {user?.role !== "super-admin" && (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Pharmacy Name
+    </label>
+    <Input placeholder="Your pharmacy name" {...form.register("pharmacyName")} />
+  </div>
+)}
+
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
