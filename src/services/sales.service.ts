@@ -338,8 +338,30 @@ export const updateSaleStatus = async (saleId: string, status: Sale['status']): 
     const currentSale = { _id: currentDoc.id, ...currentDoc.data() } as Sale;
     const previousStatus = currentSale.status;
     
-    // Update the sale status
-    await firestore.updateDoc(docRef, { status });
+    // Prepare potential item-level sync when only one item exists
+    let nextItems = (currentSale.items || []) as SaleItem[];
+    let nextSubtotal = currentSale.subtotal;
+    let nextTotal = currentSale.total;
+
+    if (Array.isArray(nextItems) && nextItems.length === 1) {
+      const onlyItem = nextItems[0];
+      // Only map between sale statuses that correspond to item statuses
+      if (status === 'completed' || status === 'refunded') {
+        const mappedItemStatus: 'completed' | 'refunded' = status;
+        nextItems = [{ ...onlyItem, status: mappedItemStatus }];
+        // Recompute totals from completed items only (same logic used elsewhere)
+        const completedSubtotal = nextItems
+          .filter((it) => (it.status || 'completed') === 'completed')
+          .reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+        const discountPct = currentSale.discount ? Number(currentSale.discount) : 0;
+        const computedTotal = +(completedSubtotal - (discountPct ? completedSubtotal * (discountPct / 100) : 0)).toFixed(2);
+        nextSubtotal = completedSubtotal;
+        nextTotal = computedTotal;
+      }
+    }
+
+    // Update the sale status (and item/totals if adjusted)
+    await firestore.updateDoc(docRef, { status, items: nextItems, subtotal: nextSubtotal, total: nextTotal });
 
     const updatedDoc = await firestore.getDoc(docRef);
     const sale: Sale = {
@@ -491,10 +513,19 @@ export const updateSaleItemStatus = async (
       .reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
     const discountPct = sale.discount ? Number(sale.discount) : 0;
     const total = +(subtotal - (discountPct ? subtotal * (discountPct / 100) : 0)).toFixed(2);
+    // Derive overall sale status from item statuses
+    const hasCompleted = items.some((it) => (it.status || 'completed') === 'completed');
+    const allRefunded = items.length > 0 && items.every((it) => (it.status || 'completed') === 'refunded');
+    let derivedStatus: Sale['status'] = sale.status;
+    if (allRefunded) {
+      derivedStatus = 'refunded';
+    } else if (hasCompleted) {
+      derivedStatus = 'completed';
+    }
 
-    await firestore.updateDoc(docRef, { items, subtotal, total });
+    await firestore.updateDoc(docRef, { items, subtotal, total, status: derivedStatus });
 
-    return { success: true, message: 'Sale item status updated', data: { sale: { ...sale, items, subtotal, total } as any } };
+    return { success: true, message: 'Sale item status updated', data: { sale: { ...sale, items, subtotal, total, status: derivedStatus } as any } };
   } catch (error) {
     handleServiceError(error, 'Failed to update sale item status');
   }
