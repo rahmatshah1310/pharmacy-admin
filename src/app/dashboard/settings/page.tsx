@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -11,69 +12,57 @@ import { Textarea } from "@/components/ui/textarea"
 import { useSettingsQuery, useUpdateSettings } from "@/app/api/settings"
 import { useUpdateUser, useDisableUser } from "@/app/api/users"
 import { useAllUsers } from "@/app/api/authApi"
-import { usePharmacyByAdminUid } from "@/app/api/pharmacy"
+import { usePharmacyByAdminUid, useUpdatePharmacy } from "@/app/api/pharmacy"
 import { useAuth } from "@/lib/authContext"
 import { usePermissions } from "@/lib/usePermissions"
-import { Select } from "@/components/ui/select"
 import { settingsSchema, type SettingsSchema } from "@/lib/schemas"
 import { toast } from "react-toastify"
-// Removed AddUserModal as add-user flow is no longer supported
 import EditUserModal from "@/components/modal/settings/EditUserModal"
-import AddUserModal from "@/components/modal/settings/AddUserModal"
-import { useAdminCreateUser } from "@/app/api/users"
 import CurrentUserModal from "@/components/modal/settings/CurrentUserModal"
 import { ContentSkeleton } from "@/components/skeletons/ContentSkeleton"
 
 export default function SettingsPage() {
   const { user, adminId } = useAuth()
-  const { isSuperAdmin, isAdmin } = usePermissions()
-  const { isReadOnlyMode, getRoleDisplayName } = usePermissions()
+  const { isSuperAdmin, isAdmin } = usePermissions() // single call, destructured
   const { data: settings, isLoading } = useSettingsQuery()
   const { mutateAsync: updateSettings, isPending } = useUpdateSettings()
   const canManageUsers = isSuperAdmin || isAdmin
   const { data: allUsers = [] } = useAllUsers()
-  
-  // Get pharmacy information for the current admin
+  const qc = useQueryClient()
+
+  // Pharmacy info for current admin
   const { data: pharmacy } = usePharmacyByAdminUid(adminId || null)
-  
-  // Filter users to show based on role
+  const { mutateAsync: updatePharmacy } = useUpdatePharmacy()
+
+  // Filter users: show users and admins within current pharmacy; exclude current admin
   const users = (() => {
-    if (isSuperAdmin) {
-      // Super admin sees all users and admins
-      return allUsers.filter((user: any) => user.role === "user" || user.role === "admin");
-    } else if (isAdmin) {
-      // Regular admin sees only users from their pharmacy
-      try {
-        const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}");
-        const currentAdminId = adminInfo.uid;
-        const currentPharmacyId = adminInfo.pharmacyId;
-        
-        if (!currentAdminId) {
-          return [];
-        }
-        
-        return allUsers.filter((user: any) => {
-          return (user.createdBy === currentAdminId || user.adminId === currentAdminId) &&
-                 (user.pharmacyId === currentPharmacyId || !user.pharmacyId) &&
-                 user.role === "user"; // Only show users, not other admins
-        });
-      } catch (error) {
-        console.error("Error filtering users:", error);
-        return [];
-      }
+    try {
+      const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}")
+      const currentAdminUid = adminInfo.uid
+      const currentPharmacyId = adminInfo.pharmacyId
+      if (!currentPharmacyId) return []
+      return (allUsers as any[]).filter((u: any) => {
+        const inSamePharmacy = u.pharmacyId === currentPharmacyId
+        const isAdminOrUser = u.role === "admin" || u.role === "user"
+        const notCurrentAdmin = !(u._id === currentAdminUid && u.role === "admin")
+        return inSamePharmacy && isAdminOrUser && notCurrentAdmin
+      })
+    } catch (error) {
+      console.error("Error filtering users:", error)
+      return []
     }
-    return [];
   })()
-  // Removed saveUser as add-user flow is no longer supported
+
+  // User mutation hooks
   const { mutateAsync: updateUser, isPending: updatingUser } = useUpdateUser()
   const { mutateAsync: disableUser, isPending: disablingUser } = useDisableUser()
-  // Removed showAddUser state as add-user flow is no longer supported
+
+  // Local UI state
   const [showEditUser, setShowEditUser] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [showCurrentUser, setShowCurrentUser] = useState(false)
-  const [showAddUser, setShowAddUser] = useState(false)
 
-  const form = useForm({
+  const form = useForm<SettingsSchema>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       organizationName: "",
@@ -96,18 +85,20 @@ export default function SettingsPage() {
         notificationEmail: settings.notificationEmail || "",
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings])
 
-  const onSubmit = async (values: any) => {
+  const onSubmit = async (values: SettingsSchema) => {
     try {
       await updateSettings(values)
       toast.success("Settings saved")
+      qc.invalidateQueries({ queryKey: ["settings"] })
     } catch (e: any) {
       toast.error(e?.message || "Failed to save settings")
     }
   }
 
-  // Show loading skeleton while data is loading
+  // Loading skeleton while settings are being fetched
   if (isLoading) {
     return (
       <div className="p-6">
@@ -117,7 +108,7 @@ export default function SettingsPage() {
         </div>
         <ContentSkeleton />
       </div>
-    );
+    )
   }
 
   return (
@@ -133,133 +124,54 @@ export default function SettingsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>My Account</CardTitle>
-              <Button type="button" variant="outline" onClick={() => setShowCurrentUser(true)}>Edit Profile</Button>
+              <Button type="button" variant="outline" onClick={() => setShowCurrentUser(true)}>
+                Edit Profile
+              </Button>
             </div>
           </CardHeader>
+
           <CardContent className="space-y-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <div className="text-xs text-gray-500">Name</div>
-                <div className="text-sm text-gray-900">{user?.displayName || '-'}</div>
+                <div className="text-sm text-gray-900">{user?.displayName || "-"}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Email</div>
-                <div className="text-sm text-gray-900">{user?.email || '-'}</div>
+                <div className="text-sm text-gray-900">{user?.email || "-"}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Role</div>
-                <div className="text-sm text-gray-900">{user?.role || '-'}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Organization</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Organization Name</label>
-              <Input placeholder="e.g. PharmaCare Pharmacy" {...form.register("organizationName")} disabled={!isSuperAdmin && !isAdmin} />
-              {form.formState.errors.organizationName && (
-                <p className="text-xs text-red-600 mt-1">{form.formState.errors.organizationName.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Address</label>
-              <Textarea rows={3} placeholder="Full address" {...form.register("address")} disabled={!isSuperAdmin && !isAdmin} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Phone</label>
-                <Input placeholder="Contact number" {...form.register("phone")} disabled={!isSuperAdmin && !isAdmin} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Notification Email</label>
-                <Input type="email" placeholder="alerts@yourpharmacy.com" {...form.register("notificationEmail")} disabled={!isSuperAdmin && !isAdmin} />
-                {form.formState.errors.notificationEmail && (
-                  <p className="text-xs text-red-600 mt-1">{form.formState.errors.notificationEmail.message as string}</p>
-                )}
+                <div className="text-sm text-gray-900">{user?.role || "-"}</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sales</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Currency</label>
-                <Input placeholder="e.g. Rs., USD, EUR" {...form.register("currency")} disabled={!isSuperAdmin && !isAdmin} />
-                {form.formState.errors.currency && (
-                  <p className="text-xs text-red-600 mt-1">{form.formState.errors.currency.message}</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Inventory</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Low Stock Threshold</label>
-              <Input type="number" min="0" {...form.register("lowStockThreshold", { valueAsNumber: true })} disabled={!isSuperAdmin && !isAdmin} />
-              {form.formState.errors.lowStockThreshold && (
-                <p className="text-xs text-red-600 mt-1">{form.formState.errors.lowStockThreshold.message}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Super Admin - Pharmacies Management */}
-        {/* {isSuperAdmin && (
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Pharmacies Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              As a Super Admin, you can manage all pharmacies in the system.
-            </p>
-            <Button onClick={() => window.location.href = '/dashboard/pharmacies'}>
-              Manage Pharmacies
-            </Button>
-          </CardContent>
-        </Card>
-        )} */}
-
+        {/* User Management (admins & super-admins only) */}
         {canManageUsers && (
-        <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2">
             <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>User Management</CardTitle>
-              {/* <Button type="button" disabled={!isAdmin} onClick={() => setShowAddUser(true)}>Add User</Button> */}
-            </div>
-            <div className="text-sm text-gray-600">
-              {(() => {
-                if (isSuperAdmin) {
-                  return `Showing ${users.length} user(s) and admin(s) - Super Admin View`;
-                } else {
-                  try {
-                    const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}");
-                    if (adminInfo.uid) {
-                      const pharmacyName = pharmacy?.name || settings?.organizationName || "Your Pharmacy";
-                      return `Showing ${users.length} user(s) from ${pharmacyName}`;
-                    }
-                    return "No admin context found - Please log in as admin to manage users";
-                  } catch {
-                    return "No admin context found - Please log in as admin to manage users";
-                  }
-                }
-              })()}
-            </div>
+              <div className="flex items-center justify-between">
+                <CardTitle>User Management</CardTitle>
+              </div>
+              <div className="text-sm text-gray-600">
+                {isSuperAdmin
+                  ? `Showing ${users.length} user(s) and admin(s) - Super Admin View`
+                  : (() => {
+                      try {
+                        const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}")
+                        if (adminInfo.uid) {
+                          return `Showing ${users.length} user(s) from ${user?.pharmacyName}`
+                        }
+                        return "No admin context found - Please log in as admin to manage users"
+                      } catch {
+                        return "No admin context found - Please log in as admin to manage users"
+                      }
+                    })()}
+              </div>
             </CardHeader>
+
             <CardContent className="space-y-4">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -279,50 +191,47 @@ export default function SettingsPage() {
                         </td>
                       </tr>
                     ) : (
-                      (users as any[]).filter((u: any) => u.role !== 'admin'&& u.role !== 'super-admin').map((u) => (
-                      <tr key={u._id}>
-                        <td className="px-3 py-2">{u.name || "-"}</td>
-                        <td className="px-3 py-2">{u.email}</td>
-                        <td className="px-3 py-2">
-                          {/* <Select defaultValue={u.role} onChange={async (e) => { await updateUser({ uid: u._id, updates: { role: e.target.value } as any }) }}>
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                          </Select> */}
-                          {u.role}
-                        </td>
-                        
-                        <td className="px-3 py-2">
-                          <div className="flex gap-2">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setSelectedUser(u)
-                                setShowEditUser(true)
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm"
-                              disabled={disablingUser || (!!user && user.uid === u._id && u.role === 'admin')} 
-                              onClick={async () => { 
-                                if (user && user.uid === u._id && u.role === 'admin') {
-                                  toast.error("You cannot disable your own admin account.")
-                                  return
-                                }
-                                await disableUser({ uid: u._id, disabled: !u.disabled }) 
-                              }}
-                            >
-                              {u.disabled ? 'Enable' : 'Disable'}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                      (users as any[])
+                        .filter((u: any) => u.role == "admin"||u.role == "user" && u.role !== "super-admin")
+                        .map((u) => (
+                          <tr key={u._id}>
+                            <td className="px-3 py-2">{u.name || "-"}</td>
+                            <td className="px-3 py-2">{u.email}</td>
+                            <td className="px-3 py-2">{u.role}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedUser(u)
+                                    setShowEditUser(true)
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={disablingUser || (!!user && user.uid === u._id && u.role === "admin")}
+                                  onClick={async () => {
+                                    if (user && user.uid === u._id && u.role === "admin") {
+                                      toast.error("You cannot disable your own admin account.")
+                                      return
+                                    }
+                                    await disableUser({ uid: u._id, disabled: !u.disabled })
+                                    qc.invalidateQueries({ queryKey: ["users"] })
+                                  }}
+                                >
+                                  {u.disabled ? "Enable" : "Disable"}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
                     )}
                   </tbody>
                 </table>
@@ -331,45 +240,43 @@ export default function SettingsPage() {
           </Card>
         )}
 
-        {/* User - Read-only information */}
+        {/* User view (non-admin) */}
         {user?.role === "user" && (
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Your Account Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              As a User, you can view your account information and use the POS and Sales systems.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-gray-500">Name</div>
-                <div className="text-sm text-gray-900">{user?.displayName || '-'}</div>
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Your Account Information</CardTitle>
+            </CardHeader>
+
+            <CardContent>
+              <p className="text-sm text-gray-600 mb-4">
+                As a User, you can view your account information and use the POS and Sales systems.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-gray-500">Name</div>
+                  <div className="text-sm text-gray-900">{user?.displayName || "-"}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500">Email</div>
+                  <div className="text-sm text-gray-900">{user?.email || "-"}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500">Role</div>
+                  <div className="text-sm text-gray-900">{user?.role || "-"}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-500">Pharmacy</div>
+                  <div className="text-sm text-gray-900">{pharmacy?.name || "Not assigned"}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-xs text-gray-500">Email</div>
-                <div className="text-sm text-gray-900">{user?.email || '-'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Role</div>
-                <div className="text-sm text-gray-900">{user?.role || '-'}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Pharmacy</div>
-                <div className="text-sm text-gray-900">{pharmacy?.name || 'Not assigned'}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
         )}
-
-        <div className="lg:col-span-2 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isPending || isLoading || (!isSuperAdmin && !isAdmin)}>Reset</Button>
-          <Button type="submit" disabled={isPending || isLoading || (!isSuperAdmin && !isAdmin)}>{isPending ? "Saving..." : "Save Settings"}</Button>
-        </div>
       </form>
-
-      {/* Add User Modal removed */}
 
       {/* Edit User Modal */}
       <EditUserModal
@@ -382,12 +289,15 @@ export default function SettingsPage() {
             updates: {
               displayName: data.displayName,
               role: data.role,
-              disabled: data.disabled
-            }
+              disabled: data.disabled,
+              permissions: Array.isArray((data as any).permissions) ? (data as any).permissions : undefined,
+            },
           })
+          qc.invalidateQueries({ queryKey: ["users"] })
         }}
         onToggleDisable={async (uid, disabled) => {
           await disableUser({ uid, disabled })
+          qc.invalidateQueries({ queryKey: ["users"] })
         }}
         isUpdating={updatingUser}
         isToggling={disablingUser}
@@ -397,20 +307,22 @@ export default function SettingsPage() {
       <CurrentUserModal
         open={showCurrentUser}
         onOpenChange={setShowCurrentUser}
-        user={user ? { _id: user.uid, email: user.email || undefined, displayName: user.displayName || "" } : null}
+        user={
+          user
+            ? { _id: user.uid, email: user.email || undefined, displayName: user.displayName || "", pharmacyName: user.pharmacyName || undefined,role:user.role }  
+            : null
+        }
         onUpdateUser={async (data) => {
-          await updateUser({ uid: data.uid, updates: { displayName: data.displayName } })
+          await updateUser({ uid: data.uid, updates: { displayName: data.displayName, email: data.email || undefined, pharmacyName: data.pharmacyName || undefined } })
+          if (adminId && pharmacy?._id && data.pharmacyName && data.pharmacyName !== pharmacy?.name) {
+            await updatePharmacy({ id: pharmacy._id, data: { name: data.pharmacyName } })
+          }
+          toast.success("Profile updated successfully")
+          qc.invalidateQueries({ queryKey: ["users"] })
+          qc.invalidateQueries({ queryKey: ["pharmacy", "admin", adminId || null] })
         }}
         isUpdating={updatingUser}
       />
-
-      {/* Add User Modal */}
-      <AddUserModal
-        open={showAddUser}
-        onOpenChange={setShowAddUser}
-          />
     </div>
   )
 }
-
-
