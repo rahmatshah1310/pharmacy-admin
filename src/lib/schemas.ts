@@ -151,10 +151,10 @@ export type CategorySchema = z.infer<typeof categorySchema>;
 // Settings schema
 export const settingsSchema = z.object({
   organizationName: z.string().min(1, "Organization name is required"),
-  address: z.string().optional().default(""),
-  phone: z.string().optional().default(""),
-  currency: z.string().min(1, "Currency is required").default("Rs."),
-  lowStockThreshold: z.number().min(0).default(10),
+  address: z.string().min(1, "Address is required"),
+  phone: z.string().min(1, "Phone is required"),
+  currency: z.string().min(1, "Currency is required"),
+  lowStockThreshold: z.number().min(0),
   notificationEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
 });
 export type SettingsSchema = z.infer<typeof settingsSchema>;
