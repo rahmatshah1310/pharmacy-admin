@@ -104,6 +104,7 @@ export const purchaseSchema = z.object({
   quantity: z.number().min(1, "Quantity must be greater than 0"),
 
   unitCost: z.number().min(0, "Unit cost is required"),     // how much you pay supplier
+  costPrice: z.number().min(0, "Cost price is required"),   // cost price per unit
   totalCost: z.number().min(0),                             // qty * unitCost
 
   // Batch & Expiry
