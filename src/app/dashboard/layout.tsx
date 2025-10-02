@@ -34,7 +34,7 @@ const allNavigation = [
   { name: 'Sales', href: '/dashboard/sales', icon: CurrencyDollarIcon, roles: ['admin', 'user'] },
   { name: 'Inventory', href: '/dashboard/inventory', icon: CubeIcon, roles: ['admin', 'user'] },
   { name: 'Purchases', href: '/dashboard/purchases', icon: TruckIcon, roles: ['admin', 'user'] },
-  { name: 'Suppliers', href: '/dashboard/suppliers', icon: UserGroupIcon, roles: ['admin', 'user'] },
+  // { name: 'Suppliers', href: '/dashboard/suppliers', icon: UserGroupIcon, roles: ['admin', 'user'] },
   { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon, roles: ['admin', 'user'] },
   { name: 'Pharmacies', href: '/dashboard/pharmacies', icon: ArchiveBoxIcon, roles: ['super-admin'] },
   { name: 'Settings', href: '/dashboard/settings', icon: CogIcon, roles: ['super-admin', 'admin', 'user'] },
