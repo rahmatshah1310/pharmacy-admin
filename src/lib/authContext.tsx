@@ -113,7 +113,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 					}
 					
 					// Write role cookie for middleware-based route protection
-					if (typeof document !== "undefined") document.cookie = `pc_role=${role}; path=/; max-age=${60 * 60 * 8}`;
+					if (typeof document !== "undefined") {
+						document.cookie = `pc_role=${role}; path=/; max-age=${60 * 60 * 8}`;
+						
+						// Write allowed routes cookie for users
+						if (role === "user") {
+							const userRoutes = profile.allowedRoutes || ["/dashboard", "/dashboard/settings"];
+							const routesJson = JSON.stringify(userRoutes);
+							document.cookie = `pc_allowed_routes=${encodeURIComponent(routesJson)}; path=/; max-age=${60 * 60 * 8}`;
+						}
+					}
 				} catch {}
 
                 // Subscribe to realtime user profile updates to keep UI in sync
@@ -147,6 +156,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                 role: nextUser.role
                             };
                             window.localStorage.setItem("pc_admin_info", JSON.stringify(adminInfo));
+                        }
+                        
+                        // Update allowed routes cookie for users when profile changes
+                        if (nextUser.role === "user") {
+                            const userRoutes = live.allowedRoutes || ["/dashboard", "/dashboard/settings"];
+                            const routesJson = JSON.stringify(userRoutes);
+                            document.cookie = `pc_allowed_routes=${encodeURIComponent(routesJson)}; path=/; max-age=${60 * 60 * 8}`;
                         }
                     } catch {}
                     // Subscribe to pharmacy doc if available to reflect pharmacy name changes
