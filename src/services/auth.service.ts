@@ -85,6 +85,10 @@ export const signupUser = async ({
     pharmacyId,
     pharmacyName,
   });
+  
+  // Sign out the newly created user so they must log in manually
+  await signOut(auth);
+  
   return user;
 };
 
