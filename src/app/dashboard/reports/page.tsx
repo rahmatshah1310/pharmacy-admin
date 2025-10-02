@@ -399,15 +399,15 @@ export default function ReportsPage() {
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <Button onClick={() => setShowGenerateReport(true)} disabled={!isAdmin}>
+                  <Button onClick={() => setShowGenerateReport(true)} >
                     <ChartBarIcon className="h-4 w-4 mr-2" />
                     Generate Report
                   </Button>
-                  <Button variant="outline" disabled={!isAdmin} onClick={() => exportElementToPDF('reports-table', 'reports.pdf')}>
+                  <Button variant="outline"  onClick={() => exportElementToPDF('reports-table', 'reports.pdf')}>
                     <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
                     Export PDF
                   </Button>
-                  <Button variant="outline" disabled={!isAdmin} onClick={() => printElementById('reports-table', 'Reports List')}>
+                  <Button variant="outline"  onClick={() => printElementById('reports-table', 'Reports List')}>
                     <PrinterIcon className="h-4 w-4 mr-2" />
                     Print
                   </Button>
@@ -498,7 +498,7 @@ export default function ReportsPage() {
                           >
                             <EyeIcon className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" disabled={!isAdmin} onClick={() => setShowGenerateReport(true)}>Generate</Button>
+                          <Button size="sm"  onClick={() => setShowGenerateReport(true)}>Generate</Button>
                         </div>
                       </TableCell>
                     </TableRow>
