@@ -278,7 +278,7 @@ export default function SuppliersPage() {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button onClick={() => { reset(); setShowAddSupplier(true) }} disabled={!isAdmin}>
+              <Button onClick={() => { reset(); setShowAddSupplier(true) }}>
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Add Supplier
               </Button>
@@ -393,7 +393,7 @@ export default function SuppliersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={!isAdmin}
+                       
                         onClick={() => {
                           setSelectedSupplier(supplier)
                           setShowEditSupplier(true)
@@ -404,7 +404,7 @@ export default function SuppliersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={!isAdmin}
+                       
                         onClick={() => {
                           setSelectedSupplier(supplier)
                           setShowDeleteSupplier(true)
@@ -555,7 +555,7 @@ export default function SuppliersPage() {
               <Button variant="outline" onClick={() => setShowAddSupplier(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={creating || !isAdmin}>
+              <Button type="submit" disabled={creating}>
                 {creating ? 'Adding...' : 'Add Supplier'}
               </Button>
             </div>
