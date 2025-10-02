@@ -267,6 +267,7 @@ export const createOrIncrementProductWithPurchase = async (payload: {
         sku: payload.sku,
         quantity,
         unitPrice: Number(payload.unitPrice ?? payload.costPrice ?? 0),
+        costPrice: Number(payload.costPrice ?? 0),
         totalCost,
         invoiceNumber: payload.invoiceNumber ?? undefined,
         batchNumber: payload.batchNumber ?? undefined,
