@@ -255,7 +255,6 @@ export default function PurchasesPage() {
                 <div className="flex gap-2">
                 <Button 
                   onClick={() => setShowAddPurchase(true)}
-                  disabled={!isAdmin}
                   variant="outline"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
@@ -370,16 +369,12 @@ export default function PurchasesPage() {
                           <TableCell><Badge variant="secondary">{o.categoryName || '-'}</Badge></TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              {isAdmin && (
                                 <Button size="sm" variant="outline" onClick={() => handleEditPurchase(o)}>
                                   <PencilIcon className="h-4 w-4" />
                                 </Button>
-                              )}
-                              {isAdmin && (
                                 <Button size="sm" variant="outline" onClick={() => handleDeletePurchase(o)}>
                                   <TrashIcon className="h-4 w-4" />
                                 </Button>
-                              )}
                             </div>
                           </TableCell>
                         </TableRow>
