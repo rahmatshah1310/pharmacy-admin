@@ -116,7 +116,7 @@ export default function DashboardPage() {
                 <CardTitle>Recent Orders</CardTitle>
                 <CardDescription>Latest transactions from your POS system</CardDescription>
               </div>
-              <Button variant="outline" size="sm" disabled={!isAdmin}>
+              <Button variant="outline" size="sm">
                 <EyeIcon className="h-4 w-4 mr-2" />
                 View All
               </Button>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                 </CardTitle>
                 <CardDescription>Items that need immediate restocking</CardDescription>
               </div>
-              <Button variant="outline" size="sm" disabled={!isAdmin}>
+              <Button variant="outline" size="sm">
                 <EyeIcon className="h-4 w-4 mr-2" />
                 Manage
               </Button>
@@ -211,7 +211,7 @@ export default function DashboardPage() {
             <Button 
               variant="outline" 
               className="h-20 flex flex-col items-center justify-center space-y-2"
-              disabled={!isAdmin}
+             
             >
               <CubeIcon className="h-6 w-6" />
               <span className="text-sm font-medium">Add Stock</span>
@@ -219,7 +219,7 @@ export default function DashboardPage() {
             <Button 
               variant="outline" 
               className="h-20 flex flex-col items-center justify-center space-y-2"
-              disabled={!isAdmin}
+             
             >
               <ShoppingCartIcon className="h-6 w-6" />
               <span className="text-sm font-medium">New Purchase</span>
@@ -227,7 +227,7 @@ export default function DashboardPage() {
             <Button 
               variant="outline" 
               className="h-20 flex flex-col items-center justify-center space-y-2"
-              disabled={!isAdmin}
+             
             >
               <EyeIcon className="h-6 w-6" />
               <span className="text-sm font-medium">View Reports</span>
