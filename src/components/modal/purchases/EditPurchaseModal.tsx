@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline"
+import CategoryCombobox from "@/components/ui/CategoryCombobox"
 import AddCategoryModal from "./AddCategoryModal"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
@@ -18,6 +18,7 @@ type EditPurchaseForm = {
   sku?: string
   quantity: number
   unitCost: number
+  costPrice: number
   batchNumber?: string
   expiryDate?: string
   invoiceNumber?: string
@@ -45,6 +46,7 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
         sku: true,
         quantity: true,
         unitCost: true,
+        costPrice: true,
         batchNumber: true,
         expiryDate: true,
         invoiceNumber: true,
@@ -59,6 +61,7 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
       sku: "",
       quantity: 1,
       unitCost: 0,
+      costPrice: 0,
       batchNumber: "",
       expiryDate: "",
       invoiceNumber: "",
@@ -71,8 +74,7 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
 
   // local category search/add UI to mirror AddPurchaseModal
   const [localCategories, setLocalCategories] = useState<any[]>(categories || [])
-  const [categoryQuery, setCategoryQuery] = useState("")
-  const [showCategoryList, setShowCategoryList] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<any>(null)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
 
   useEffect(() => { setLocalCategories(categories || []) }, [categories])
@@ -83,7 +85,8 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
       productName: p.productName || "",
       sku: p.sku || "",
       quantity: p.quantity || 1,
-      unitCost: p.unitCost || 0,
+      unitCost: p.unitPrice || p.unitCost || 0, // Check both unitPrice and unitCost
+      costPrice: p.costPrice || p.unitPrice || p.unitCost || 0, // Fallback to unitPrice if costPrice doesn't exist
       batchNumber: p.batchNumber || "",
       expiryDate: p.expiryDate ? String(p.expiryDate).slice(0, 10) : "",
       invoiceNumber: p.invoiceNumber || "",
@@ -92,24 +95,29 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
       categoryId: p.categoryId || "",
       categoryName: p.categoryName || "",
     })
-    setCategoryQuery(p.categoryName || "")
+    // Set selected category for combobox
+    if (p.categoryId && p.categoryName) {
+      setSelectedCategory({ _id: p.categoryId, name: p.categoryName })
+    } else {
+      setSelectedCategory(null)
+    }
   }, [purchase])
 
   const onSubmit = async (values: EditPurchaseForm) => {
     if (!purchase?._id) return
-    const resolvedCategoryName = (values.categoryName && values.categoryName.trim().length > 0) ? values.categoryName : (categoryQuery || "").trim()
     const payload: any = {
       productName: values.productName,
       sku: values.sku || undefined,
       quantity: Number(values.quantity),
       unitPrice: Number(values.unitCost),
+      costPrice: Number(values.costPrice),
       batchNumber: values.batchNumber || undefined,
       expiryDate: values.expiryDate || undefined,
       invoiceNumber: values.invoiceNumber || undefined,
       orderDate: values.orderDate,
       receivedAt: values.receivedAt || undefined,
-      categoryId: values.categoryId || undefined,
-      categoryName: resolvedCategoryName || undefined,
+      categoryId: selectedCategory?._id || undefined,
+      categoryName: selectedCategory?.name || undefined,
     }
     await mutateAsync({ id: purchase._id, data: payload })
   }
@@ -127,7 +135,7 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
             <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
             <Input {...form.register("productName")} />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
               <Input type="number" {...form.register("quantity", { valueAsNumber: true })} />
@@ -135,6 +143,10 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
               <Input type="number" step="0.01" {...form.register("unitCost", { valueAsNumber: true })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price</label>
+              <Input type="number" step="0.01" {...form.register("costPrice", { valueAsNumber: true })} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Invoice #</label>
@@ -161,45 +173,14 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
               <Input type="date" {...form.register("expiryDate")} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <div className="relative">
-                <Input 
-                  placeholder="Search or add category"
-                  value={categoryQuery}
-                  onChange={(e) => { setCategoryQuery(e.target.value); setShowCategoryList(true) }}
-                  onFocus={() => setShowCategoryList(true)}
-                />
-                <ChevronDownIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                {showCategoryList && (
-                  <div className="mt-2 max-h-40 overflow-y-auto border rounded-md bg-white z-[1000] absolute left-0 right-0">
-                    {(localCategories || []).filter((c: any) => (c.name || '').toLowerCase().includes((categoryQuery || '').toLowerCase())).map((c: any) => (
-                      <button
-                        key={c._id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                        onClick={() => {
-                          setCategoryQuery(c.name)
-                          form.setValue('categoryName' as any, c.name)
-                          form.setValue('categoryId' as any, c._id)
-                          setShowCategoryList(false)
-                        }}
-                      >
-                        {c.name}
-                      </button>
-                    ))}
-                    {((localCategories || []).filter((c: any) => (c.name || '').toLowerCase().includes((categoryQuery || '').toLowerCase())).length === 0) && (
-                      <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
-                    )}
-                  </div>
-                )}
-                <div className="flex justify-end mt-2">
-                  {onAddCategory && (
-                    <Button type="button" variant="outline" size="icon" onClick={() => setShowAddCategoryModal(true)} aria-label="Add category">
-                      <PlusIcon className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <CategoryCombobox
+                categories={localCategories}
+                selectedCategory={selectedCategory}
+                onCategorySelect={setSelectedCategory}
+                onAddCategory={onAddCategory ? () => setShowAddCategoryModal(true) : undefined}
+                label="Category"
+                placeholder="Search or select category"
+              />
             </div>
           </div>
 
@@ -217,10 +198,7 @@ export default function EditPurchaseModal({ open, onOpenChange, purchase, catego
               const newCat = created?.data || created
               const normalized = newCat?._id ? newCat : { _id: newCat?.id || name, name }
               setLocalCategories((prev) => [normalized, ...prev.filter((c) => c._id !== normalized._id)])
-              setCategoryQuery(normalized.name)
-              form.setValue('categoryName' as any, normalized.name)
-              form.setValue('categoryId' as any, normalized._id)
-              setShowCategoryList(false)
+              setSelectedCategory(normalized)
             }}
           />
         )}
