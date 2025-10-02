@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronDownIcon, PlusIcon } from "@heroicons/react/24/outline"
+import CategoryCombobox from "@/components/ui/CategoryCombobox"
 import AddCategoryModal from "./AddCategoryModal"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
@@ -17,6 +17,7 @@ type AddPurchaseForm = {
   sku?: string
   quantity: number
   unitCost: number
+  costPrice: number
   batchNumber?: string
   expiryDate?: string
   invoiceNumber?: string
@@ -35,8 +36,7 @@ interface AddPurchaseModalProps {
 
 export default function AddPurchaseModal({ open, onOpenChange, categories = [], onAddCategory }: AddPurchaseModalProps) {
   const [localCategories, setLocalCategories] = useState<any[]>(categories || [])
-  const [categoryQuery, setCategoryQuery] = useState("")
-  const [showCategoryList, setShowCategoryList] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<any>(null)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const { mutateAsync: addPurchase, isPending } = useAddPurchaseProduct()
 
@@ -47,6 +47,7 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
         sku: true,
         quantity: true,
         unitCost: true,
+        costPrice: true,
         batchNumber: true,
         expiryDate: true,
         invoiceNumber: true,
@@ -59,6 +60,7 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
       sku: "",
       quantity: 1,
       unitCost: 0,
+      costPrice: 0,
       batchNumber: "",
       expiryDate: "",
       invoiceNumber: "",
@@ -78,26 +80,30 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
         notify.error("SKU is required")
         return
       }
-      // Use typed category if user didn't explicitly select from list
-      const resolvedCategoryName = (values.categoryName && values.categoryName.trim().length > 0) ? values.categoryName : (categoryQuery || "").trim()
+      if (!selectedCategory) {
+        notify.error("Category is required")
+        return
+      }
       await addPurchase({
         name: values.productName,
         sku: values.sku || "",
-        category: resolvedCategoryName || "",
+        category: selectedCategory.name || "",
         quantity: Number(values.quantity),
         unitPrice: Number(values.unitCost),
+        costPrice: Number(values.costPrice),
         batchNumber: values.batchNumber || null,
         expiryDate: values.expiryDate || null,
         invoiceNumber: values.invoiceNumber || null,
         orderDate: values.orderDate,
         receivedAt: values.receivedAt || null,
         // category passthrough for purchase record convenience
-        categoryId: values.categoryId || undefined,
-        categoryName: resolvedCategoryName || undefined,
+        categoryId: selectedCategory._id || undefined,
+        categoryName: selectedCategory.name || undefined,
       } as any)
       notify.success("Purchase recorded and inventory updated")
       onOpenChange(false)
       form.reset()
+      setSelectedCategory(null)
     } catch (e: any) {
       const message = typeof e?.message === 'string' && e.message.length > 0 ? e.message : 'Failed to add purchase'
       notify.error(message)
@@ -125,7 +131,7 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
             <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
             <Input {...form.register("sku")} placeholder="SKU-123" />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
               <Input type="number" {...form.register("quantity", { valueAsNumber: true })} />
@@ -135,51 +141,23 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
               <Input type="number" step="0.01" {...form.register("unitCost", { valueAsNumber: true })} />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cost Price</label>
+              <Input type="number" step="0.01" {...form.register("costPrice", { valueAsNumber: true })} />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Invoice #</label>
               <Input {...form.register("invoiceNumber")} />
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category (if new product)</label>
-            <div className="relative">
-              <Input 
-                placeholder="Search or add category"
-                value={categoryQuery}
-                onChange={(e) => { setCategoryQuery(e.target.value); setShowCategoryList(true) }}
-                onFocus={() => setShowCategoryList(true)}
-              />
-              <ChevronDownIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              {showCategoryList && (
-                <div className="mt-2 max-h-40 overflow-y-auto border rounded-md bg-white z-[1000] absolute left-0 right-0">
-                  {(localCategories || []).filter((c: any) => (c.name || '').toLowerCase().includes((categoryQuery || '').toLowerCase())).map((c: any) => (
-                    <button
-                      key={c._id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                      onClick={() => {
-                        setCategoryQuery(c.name)
-                        form.setValue('categoryName' as any, c.name)
-                        form.setValue('categoryId' as any, c._id)
-                        setShowCategoryList(false)
-                      }}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-                  {((localCategories || []).filter((c: any) => (c.name || '').toLowerCase().includes((categoryQuery || '').toLowerCase())).length === 0) && (
-                    <div className="px-3 py-2 text-sm text-gray-500">No matches</div>
-                  )}
-                </div>
-              )}
-              <div className="flex justify-end mt-2">
-                {onAddCategory && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => setShowAddCategoryModal(true)} aria-label="Add category">
-                    <PlusIcon className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
+          <CategoryCombobox
+            categories={localCategories}
+            selectedCategory={selectedCategory}
+            onCategorySelect={setSelectedCategory}
+            onAddCategory={onAddCategory ? () => setShowAddCategoryModal(true) : undefined}
+            label="Category (if new product)"
+            placeholder="Search or select category"
+            required={true}
+          />
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Order Date</label>
@@ -228,10 +206,7 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
             const newCat = created?.data || created
             const normalized = newCat?._id ? newCat : { _id: newCat?.id || name, name }
             setLocalCategories((prev) => [normalized, ...prev.filter((c) => c._id !== normalized._id)])
-            setCategoryQuery(normalized.name)
-            form.setValue('categoryName' as any, normalized.name)
-            form.setValue('categoryId' as any, normalized._id)
-            setShowCategoryList(false)
+            setSelectedCategory(normalized)
           }}
         />
       )}
