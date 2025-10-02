@@ -68,23 +68,9 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// ----- Route → Permission mapping
-const ROUTE_PERMISSIONS: Record<string, string> = {
-  "/dashboard": "dashboard.view",
-  "/dashboard/settings": "dashboard.settings",
-  "/dashboard/sales": "dashboard.sales",
-  "/dashboard/pos": "dashboard.pos",
-  "/dashboard/reports": "dashboard.reports",
-  "/dashboard/inventory": "dashboard.inventory",
-  "/dashboard/purchases": "dashboard.purchases",
-  "/dashboard/suppliers": "dashboard.suppliers",
-  "/dashboard/returns": "dashboard.returns",
-  // add more as needed
-}
-
-// ----- Helpers
-function parsePermissions(req: NextRequest): string[] {
-  const raw = req.cookies.get("pc_permissions")?.value
+// ----- Helper to parse user's allowed routes from cookies
+function parseAllowedRoutes(req: NextRequest): string[] {
+  const raw = req.cookies.get("pc_allowed_routes")?.value
   if (!raw) return []
   try {
     return JSON.parse(decodeURIComponent(raw))
@@ -93,13 +79,14 @@ function parsePermissions(req: NextRequest): string[] {
   }
 }
 
-function findPermissionForPath(path: string): string | null {
-  for (const [prefix, perm] of Object.entries(ROUTE_PERMISSIONS)) {
-    if (path === prefix || path.startsWith(prefix + "/")) {
-      return perm
+function isUserAllowedRoute(path: string, allowedRoutes: string[]): boolean {
+  return allowedRoutes.some(route => {
+    // Treat "/dashboard" as exact-only to avoid wildcard access to all subroutes
+    if (route === "/dashboard") {
+      return path === "/dashboard";
     }
-  }
-  return null
+    return path === route || path.startsWith(route + "/");
+  })
 }
 
 // ----- Main middleware
@@ -108,7 +95,7 @@ export function middleware(req: NextRequest) {
   const path = url.pathname
   const role = req.cookies.get("pc_role")?.value || ""
 
-  // ----- Super admin
+  // ----- Super admin: Only pharmacies and settings
   if (role === "super-admin") {
     if (
       path.startsWith("/dashboard/pharmacies") ||
@@ -120,20 +107,25 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ----- Admin (all dashboard routes allowed)
+  // ----- Admin: All dashboard routes allowed
   if (role === "admin") {
     return NextResponse.next()
   }
 
-  // ----- User
+  // ----- User: Check their specific allowed routes
   if (role === "user") {
-    const permissionNeeded = findPermissionForPath(path)
-    const perms = parsePermissions(req)
-
-    if (permissionNeeded && perms.includes(permissionNeeded)) {
+    const allowedRoutes = parseAllowedRoutes(req)
+    
+    // IMPORTANT: Only use database-stored routes, no defaults that might be too permissive
+    // If no routes are set in database, user gets minimal access
+    const routesToCheck = allowedRoutes.length > 0 ? allowedRoutes : ["/dashboard", "/dashboard/settings"]
+    
+    if (isUserAllowedRoute(path, routesToCheck)) {
       return NextResponse.next()
     }
-    url.pathname = perms.includes("dashboard.view") ? "/dashboard" : "/login"
+    // Redirect to the first allowed route or dashboard
+    const redirectTo = routesToCheck.includes("/dashboard") ? "/dashboard" : routesToCheck[0] || "/dashboard"
+    url.pathname = redirectTo
     return NextResponse.redirect(url)
   }
 
