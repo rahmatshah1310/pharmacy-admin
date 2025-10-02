@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useSettingsQuery, useUpdateSettings } from "@/app/api/settings"
-import { useUpdateUser, useDisableUser } from "@/app/api/users"
+import { useUpdateUser, useDeleteUser } from "@/app/api/users"
 import { useAllUsers } from "@/app/api/authApi"
 import { usePharmacyByAdminUid, useUpdatePharmacy } from "@/app/api/pharmacy"
 import { useAuth } from "@/lib/authContext"
@@ -19,6 +19,7 @@ import { settingsSchema, type SettingsSchema } from "@/lib/schemas"
 import { toast } from "react-toastify"
 import EditUserModal from "@/components/modal/settings/EditUserModal"
 import CurrentUserModal from "@/components/modal/settings/CurrentUserModal"
+import DeleteUserModal from "@/components/modal/settings/DeleteUserModal"
 import { ContentSkeleton } from "@/components/skeletons/ContentSkeleton"
 
 export default function SettingsPage() {
@@ -55,12 +56,14 @@ export default function SettingsPage() {
 
   // User mutation hooks
   const { mutateAsync: updateUser, isPending: updatingUser } = useUpdateUser()
-  const { mutateAsync: disableUser, isPending: disablingUser } = useDisableUser()
+  const { mutateAsync: deleteUser, isPending: deletingUser } = useDeleteUser()
 
   // Local UI state
   const [showEditUser, setShowEditUser] = useState(false)
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [showCurrentUser, setShowCurrentUser] = useState(false)
+  const [showDeleteUser, setShowDeleteUser] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<any>(null)
 
   const form = useForm<SettingsSchema>({
     resolver: zodResolver(settingsSchema),
@@ -95,6 +98,20 @@ export default function SettingsPage() {
       qc.invalidateQueries({ queryKey: ["settings"] })
     } catch (e: any) {
       toast.error(e?.message || "Failed to save settings")
+    }
+  }
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
+    
+    try {
+      await deleteUser(userToDelete._id)
+      toast.success("User deleted successfully")
+      qc.invalidateQueries({ queryKey: ["users"] })
+      qc.invalidateQueries({ queryKey: ["auth", "allUsers"] })
+      setUserToDelete(null)
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete user")
     }
   }
 
@@ -214,19 +231,23 @@ export default function SettingsPage() {
 
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="destructive"
                                   size="sm"
-                                  disabled={disablingUser || (!!user && user.uid === u._id && u.role === "admin")}
-                                  onClick={async () => {
-                                    if (user && user.uid === u._id && u.role === "admin") {
-                                      toast.error("You cannot disable your own admin account.")
+                                  disabled={deletingUser || (!!user && user.uid === u._id)}
+                                  onClick={() => {
+                                    if (user && user.uid === u._id) {
+                                      toast.error("You cannot delete your own account.")
                                       return
                                     }
-                                    await disableUser({ uid: u._id, disabled: !u.disabled })
-                                    qc.invalidateQueries({ queryKey: ["users"] })
+                                    if (u.role === "admin" || u.role === "super-admin") {
+                                      toast.error("Cannot delete admin users.")
+                                      return
+                                    }
+                                    setUserToDelete(u)
+                                    setShowDeleteUser(true)
                                   }}
                                 >
-                                  {u.disabled ? "Enable" : "Disable"}
+                                  Delete
                                 </Button>
                               </div>
                             </td>
@@ -290,17 +311,12 @@ export default function SettingsPage() {
               displayName: data.displayName,
               role: data.role,
               disabled: data.disabled,
-              permissions: Array.isArray((data as any).permissions) ? (data as any).permissions : undefined,
+              allowedRoutes: data.allowedRoutes,
             },
           })
           qc.invalidateQueries({ queryKey: ["users"] })
         }}
-        onToggleDisable={async (uid, disabled) => {
-          await disableUser({ uid, disabled })
-          qc.invalidateQueries({ queryKey: ["users"] })
-        }}
         isUpdating={updatingUser}
-        isToggling={disablingUser}
       />
 
       {/* Current User Modal */}
@@ -322,6 +338,15 @@ export default function SettingsPage() {
           qc.invalidateQueries({ queryKey: ["pharmacy", "admin", adminId || null] })
         }}
         isUpdating={updatingUser}
+      />
+
+      {/* Delete User Modal */}
+      <DeleteUserModal
+        open={showDeleteUser}
+        onOpenChange={setShowDeleteUser}
+        user={userToDelete}
+        onConfirm={handleDeleteUser}
+        isDeleting={deletingUser}
       />
     </div>
   )
