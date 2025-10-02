@@ -117,7 +117,9 @@ export const usePermissions = () => {
   }, [])
 
   const permissions = useMemo(() => {
-    if (user?.permissions?.length) return user.permissions.map(String)
+    // Check if user has permissions property (it might not be in the type but could exist at runtime)
+    const userPerms = (user as any)?.permissions
+    if (userPerms?.length) return userPerms.map(String)
     return cookiePerms
   }, [user, cookiePerms])
 
@@ -127,6 +129,17 @@ export const usePermissions = () => {
     return permissions.includes(key)
   }
 
+  const getRoleDisplayName = (): string => {
+    if (isSuperAdmin) return 'Super Admin'
+    if (isAdmin) return 'Admin'
+    if (isUser) return 'User'
+    return 'Guest'
+  }
+
+  const isReadOnlyMode = (): boolean => {
+    return isUser && !isAdmin
+  }
+
   return {
     user,
     isSuperAdmin,
@@ -134,5 +147,7 @@ export const usePermissions = () => {
     isUser,
     permissions,
     hasPermission,
+    getRoleDisplayName,
+    isReadOnlyMode,
   }
 }
