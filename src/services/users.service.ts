@@ -89,7 +89,7 @@ export const getUserById = async (uid: string) => {
 
 // saveUser removed; add-user flow no longer supported
 
-export const updateUser = async (uid: string, updates: Partial<{ displayName: string; email: string; pharmacyName: string; role: "admin" | "user"; permissions: string[]; disabled: boolean }>) => {
+export const updateUser = async (uid: string, updates: Partial<{ displayName: string; email: string; pharmacyName: string; role: "admin" | "user"; permissions: string[]; disabled: boolean; allowedRoutes: string[] }>) => {
   try {
     // First check if user exists and belongs to the same pharmacy
     const userRef = firestore.doc(firestore.db, "users", uid);
@@ -139,6 +139,33 @@ export const disableUser = async (uid: string, disabled: boolean) => {
     return { success: true, message: disabled ? "User disabled" : "User enabled", data: { user: { _id: snap.id, ...snap.data() } } } as const;
   } catch (error) {
     handleServiceError(error, "Failed to change user status");
+  }
+};
+
+export const deleteUser = async (uid: string) => {
+  try {
+    // First check if user exists and belongs to the same pharmacy
+    const userRef = firestore.doc(firestore.db, "users", uid);
+    const userSnap = await firestore.getDoc(userRef);
+    if (!userSnap.exists()) throw new ApiError(404, "User not found");
+    
+    const userData = userSnap.data() as any;
+    const { pharmacyId } = getTenantMeta();
+    
+    // Ensure user belongs to the same pharmacy (for non-admin users)
+    if (userData.role === "user" && userData.pharmacyId !== pharmacyId) {
+      throw new ApiError(403, "Access denied: Cannot delete user from different pharmacy");
+    }
+    
+    // Prevent deletion of admin users (only allow user role deletion)
+    if (userData.role === "admin" || userData.role === "super-admin") {
+      throw new ApiError(403, "Access denied: Cannot delete admin users");
+    }
+    
+    await firestore.deleteDoc(userRef);
+    return { success: true, message: "User deleted successfully" } as const;
+  } catch (error) {
+    handleServiceError(error, "Failed to delete user");
   }
 };
 
