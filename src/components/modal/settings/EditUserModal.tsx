@@ -331,7 +331,6 @@ export default function EditUserModal({
               </label>
               <Select {...form.register("role")}>
                 <option value="user">User</option>
-                <option value="admin">Admin</option>
               </Select>
               {form.formState.errors.role && (
                 <p className="text-xs text-red-600 mt-1">
