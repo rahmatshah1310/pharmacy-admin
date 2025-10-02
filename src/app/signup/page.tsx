@@ -82,17 +82,11 @@ export default function SignupPage() {
       }
       
       await signup(signupData)
-      notify.success("Account created successfully!")
+      notify.success("Account created successfully! Please log in with your new credentials.")
       reset()
 
-      // If signup signs the user in, send to dashboard. Otherwise, send to login.
-      try {
-        const authData = window.localStorage.getItem("pc_auth")
-        const isSignedIn = !!authData
-        router.push(isSignedIn ? "/dashboard" : "/login")
-      } catch {
-        router.push("/login")
-      }
+      // Always redirect to login page after successful signup
+      router.push("/login")
     } catch (err: any) {
       notify.error(err?.message || "Failed to create account")
     }
