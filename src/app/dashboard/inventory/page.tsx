@@ -305,7 +305,7 @@ export default function InventoryPage() {
                     value={filterMaxStock}
                     onChange={(e) => setFilterMaxStock(e.target.value)}
                   />
-                  <Button variant="outline" disabled={!isAdmin} onClick={() => exportElementToPDF('inventory-table', 'inventory.pdf')}>
+                  <Button variant="outline"  onClick={() => exportElementToPDF('inventory-table', 'inventory.pdf')}>
                     <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
                     Export PDF
                   </Button>
@@ -502,7 +502,7 @@ export default function InventoryPage() {
                   </Select>
                 </div>
               </div>
-              <Button disabled={!isAdmin}>Save Settings</Button>
+              <Button >Save Settings</Button>
             </CardContent>
           </Card>
         </TabsContent>
