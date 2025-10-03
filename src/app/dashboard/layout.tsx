@@ -49,7 +49,7 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const router = useRouter()
   const { user, loading, adminId } = useAuth()
-  const { getRoleDisplayName, isReadOnlyMode, isSuperAdmin, isAdmin, isUser } = usePermissions()
+  const { getRoleDisplayName, isReadOnlyMode, isSuperAdmin, isAdmin, isUser, hasRouteAccess } = usePermissions()
   const { mutateAsync: logout, isPending: isLoggingOut } = useLogout()
   const { data: pharmacy } = usePharmacyByAdminUid(adminId || null)
   
@@ -156,6 +156,12 @@ export default function DashboardLayout({
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
+                  onClick={(e) => {
+                    if (!hasRouteAccess(item.href)) {
+                      e.preventDefault(); 
+                      toast.error('You do not have permission to access this page');
+                    }
+                  }}
                 >
                   <item.icon
                     className={`mr-3 h-5 w-5 flex-shrink-0 ${
@@ -210,6 +216,12 @@ export default function DashboardLayout({
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
+                  onClick={(e) => {
+                    if (!hasRouteAccess(item.href)) {
+                      e.preventDefault()
+                      toast.error('You do not have permission to access this page')
+                    }
+                  }}
                 >
                   <item.icon
                     className={`mr-3 h-5 w-5 flex-shrink-0 ${
