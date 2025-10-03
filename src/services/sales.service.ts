@@ -338,26 +338,21 @@ export const updateSaleStatus = async (saleId: string, status: Sale['status']): 
     const currentSale = { _id: currentDoc.id, ...currentDoc.data() } as Sale;
     const previousStatus = currentSale.status;
     
-    // Prepare potential item-level sync when only one item exists
+    // Prepare item-level sync for Completed/Refunded: update ALL items and recompute totals
     let nextItems = (currentSale.items || []) as SaleItem[];
     let nextSubtotal = currentSale.subtotal;
     let nextTotal = currentSale.total;
 
-    if (Array.isArray(nextItems) && nextItems.length === 1) {
-      const onlyItem = nextItems[0];
-      // Only map between sale statuses that correspond to item statuses
-      if (status === 'completed' || status === 'refunded') {
-        const mappedItemStatus: 'completed' | 'refunded' = status;
-        nextItems = [{ ...onlyItem, status: mappedItemStatus }];
-        // Recompute totals from completed items only (same logic used elsewhere)
-        const completedSubtotal = nextItems
-          .filter((it) => (it.status || 'completed') === 'completed')
-          .reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
-        const discountPct = currentSale.discount ? Number(currentSale.discount) : 0;
-        const computedTotal = +(completedSubtotal - (discountPct ? completedSubtotal * (discountPct / 100) : 0)).toFixed(2);
-        nextSubtotal = completedSubtotal;
-        nextTotal = computedTotal;
-      }
+    if (Array.isArray(nextItems) && (status === 'completed' || status === 'refunded')) {
+      const mappedItemStatus: 'completed' | 'refunded' = status;
+      nextItems = nextItems.map((it) => ({ ...it, status: mappedItemStatus }));
+      const completedSubtotal = nextItems
+        .filter((it) => (it.status || 'completed') === 'completed')
+        .reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+      const discountPct = currentSale.discount ? Number(currentSale.discount) : 0;
+      const computedTotal = +(completedSubtotal - (discountPct ? completedSubtotal * (discountPct / 100) : 0)).toFixed(2);
+      nextSubtotal = completedSubtotal;
+      nextTotal = computedTotal;
     }
 
     // Update the sale status (and item/totals if adjusted)
