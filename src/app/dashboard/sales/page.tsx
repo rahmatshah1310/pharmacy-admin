@@ -178,7 +178,7 @@ export default function SalesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Sales</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total || 0}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.completedSales || 0}</p>
               </div>
               <ShoppingCartIcon className="h-8 w-8 text-blue-600" />
             </div>
