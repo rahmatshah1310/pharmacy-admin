@@ -34,20 +34,15 @@ export default function LoginPage() {
     }
   }
 
+
+
   // If already authenticated, send to dashboard
   useEffect(() => {
+    if (loading) return; // wait until auth finishes
     if (user) {
       router.replace("/dashboard")
     }
   }, [user, loading, router])
-
-  if (loading) {
-    return(
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900j">Loading...</h1>
-      </div>
-    )
-  }
   
 
   return (
