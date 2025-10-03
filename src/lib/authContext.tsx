@@ -232,6 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {
 			user,
 			loading: loading || !initialized,
+			setLoading,
 			isSuperAdmin,
 			isAdmin,
 			isUser,
