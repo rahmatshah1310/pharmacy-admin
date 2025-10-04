@@ -457,6 +457,7 @@ export default function POSPage() {
                         </p>
                         <p className="text-xs text-gray-400">
                           {product.barcode}
+                          <p className="text-xs text-gray-400">Row:{product.row}</p>
                         </p>
                       </div>
                     </div>
