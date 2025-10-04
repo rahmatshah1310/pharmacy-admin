@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   useGetAllSales, 
   useGetSalesStats, 
@@ -23,7 +23,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, PaginatedTable } from "@/components/ui/table";
 import { Select } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import DeleteSaleModal from "@/components/modal/sales/DeleteSaleModal";
@@ -31,10 +31,10 @@ import ViewSaleModal from "@/components/modal/sales/ViewSaleModal";
 import { useAuth } from "@/lib/authContext";
 import { usePermissions } from "@/lib/usePermissions";
 import { useRouter } from "next/navigation";
+import { usePagination } from "@/lib/usePagination";
 
 export default function SalesPage() {
   const router = useRouter();
-  const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -42,6 +42,10 @@ export default function SalesPage() {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -56,8 +60,8 @@ export default function SalesPage() {
   const canDeleteSales = isAdmin && !isSuperAdmin;
 
   const { data: salesData, isLoading: salesLoading, error: salesError } = useGetAllSales(
-    currentPage, 
-    10, 
+    1, 
+    1000, // Get all sales for client-side pagination
     statusFilter === "all" ? undefined : statusFilter, 
     startDate || undefined, 
     endDate || undefined
@@ -123,6 +127,9 @@ export default function SalesPage() {
     );
   };
 
+  const sales = salesData?.data?.sales || [];
+  const stats = statsData?.data || {};
+
   const clearFilters = () => {
     setStatusFilter("all");
     setStartDate("");
@@ -132,12 +139,7 @@ export default function SalesPage() {
     setCurrentPage(1);
   };
 
-
-
-  const sales = salesData?.data?.sales || [];
-  const stats = statsData?.data || {};
-
-  // Filter sales based on search query
+  // Filter and sort sales
   const filteredSales = sales?.filter(sale => {
     if (!searchQuery) return true;
     
@@ -154,6 +156,25 @@ export default function SalesPage() {
     if (paymentMethodFilter === "all") return true;
     return (sale.paymentMethod || '').toLowerCase() === paymentMethodFilter.toLowerCase();
   }).filter(sale => (sale.items?.length || 0) > 0) || [];
+
+  const sortedSales = [...filteredSales].sort((a: any, b: any) => {
+    let av = a[sortBy]
+    let bv = b[sortBy]
+    if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv || '').toLowerCase() }
+    if (sortOrder === 'asc') return av < bv ? -1 : av > bv ? 1 : 0
+    return av > bv ? -1 : av < bv ? 1 : 0
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(sortedSales.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedSales = sortedSales.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, startDate, endDate, searchQuery, paymentMethodFilter]);
 
   return (
     <div className="p-6">
@@ -209,7 +230,7 @@ export default function SalesPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Sales Transactions ({filteredSales.length})</CardTitle>
+              <CardTitle>Sales Transactions ({sortedSales.length})</CardTitle>
               <CardDescription>View and manage all sales transactions</CardDescription>
             </div>
           </div>
@@ -273,113 +294,117 @@ export default function SalesPage() {
             </div>
           </div>
           
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>S.No</TableHead>
-                <TableHead>Receipt ID</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSales
-                .sort((a: any, b: any) => {
-                  let av = a[sortBy]
-                  let bv = b[sortBy]
-                  if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv || '').toLowerCase() }
-                  if (sortOrder === 'asc') return av < bv ? -1 : av > bv ? 1 : 0
-                  return av > bv ? -1 : av < bv ? 1 : 0
-                })
-                .map((sale, index) => (
-                <TableRow key={sale._id}>
-                  <TableCell>
-                    <div className="text-center font-medium">
-                      {index + 1}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">#{sale.receiptId || sale._id.slice(-8)}</p>
-                      {sale.notes && (
-                        <p className="text-xs text-gray-500 truncate max-w-[200px]">{sale.notes}</p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{sale.items.length} item(s)</p>
-                      <p className="text-xs text-gray-500">
-                        {sale.items.slice(0, 2).map((item: any) => item.name).join(', ')}
-                        {sale.items.length > 2 && ` +${sale.items.length - 2} more`}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="text-sm">{sale.customerId || 'Walk-in'}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="capitalize">{sale.paymentMethod}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{formatCurrency(sale.total)}</p>
-                      {/* {sale.discount && sale.discount > 0 && (
-                        <p className="text-xs text-green-600">-{sale.discount}% discount</p>
-                      )} */}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="text-sm">{format(new Date(sale.createdAt), 'MMM dd, yyyy')}</p>
-                      <p className="text-xs text-gray-500">{format(new Date(sale.createdAt), 'HH:mm')}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={
-                      sale.status === 'completed' ? 'success' : 'secondary'
-                    }>
-                      {sale.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setViewSaleId(sale._id)}>
-                        <EyeIcon className="h-4 w-4" />
-                      </Button>
-                      <Select 
-                        value={sale.status}
-                        onChange={(e) => handleStatusUpdate(sale._id, e.target.value)}
-                        className="w-32"
-                      >
-                        <option value="completed">Completed</option>
-                        <option value="refunded">Refunded</option>
-                      </Select>
-                      {canDeleteSales && (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handleDeleteSale(sale._id, sale.total)}
-                          disabled={deleteSaleMutation.isPending}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
+          <PaginatedTable
+            data={sortedSales}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={sortedSales.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+            showItemsPerPageSelector={true}
+            itemsPerPageOptions={[5, 10, 25, 50]}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>S.No</TableHead>
+                  <TableHead>Receipt ID</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paginatedSales.map((sale, index) => (
+                  <TableRow key={sale._id}>
+                    <TableCell>
+                      <div className="text-center font-medium">
+                        {startIndex + index + 1}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">#{sale.receiptId || sale._id.slice(-8)}</p>
+                        {sale.notes && (
+                          <p className="text-xs text-gray-500 truncate max-w-[200px]">{sale.notes}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{sale.items.length} item(s)</p>
+                        <p className="text-xs text-gray-500">
+                          {sale.items.slice(0, 2).map((item: any) => item.name).join(', ')}
+                          {sale.items.length > 2 && ` +${sale.items.length - 2} more`}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm">{sale.customerId || 'Walk-in'}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="capitalize">{sale.paymentMethod}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{formatCurrency(sale.total)}</p>
+                        {/* {sale.discount && sale.discount > 0 && (
+                          <p className="text-xs text-green-600">-{sale.discount}% discount</p>
+                        )} */}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="text-sm">{format(new Date(sale.createdAt), 'MMM dd, yyyy')}</p>
+                        <p className="text-xs text-gray-500">{format(new Date(sale.createdAt), 'HH:mm')}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={
+                        sale.status === 'completed' ? 'success' : 'secondary'
+                      }>
+                        {sale.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setViewSaleId(sale._id)}>
+                          <EyeIcon className="h-4 w-4" />
+                        </Button>
+                        <Select 
+                          value={sale.status}
+                          onChange={(e) => handleStatusUpdate(sale._id, e.target.value)}
+                          className="w-32"
+                        >
+                          <option value="completed">Completed</option>
+                          <option value="refunded">Refunded</option>
+                        </Select>
+                        {canDeleteSales && (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleDeleteSale(sale._id, sale.total)}
+                            disabled={deleteSaleMutation.isPending}
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </PaginatedTable>
           
-          {filteredSales.length === 0 && (
+          {sortedSales.length === 0 && (
             <div className="text-center py-12">
               <ShoppingCartIcon className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No sales found</h3>
@@ -394,17 +419,6 @@ export default function SalesPage() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {salesData?.data?.hasMore && (
-        <div className="flex justify-center mt-6">
-          <Button
-            onClick={() => setCurrentPage(currentPage + 1)}
-            variant="outline"
-          >
-            Load More
-          </Button>
-        </div>
-      )}
 
       {/* Delete Sale Modal */}
       <DeleteSaleModal
