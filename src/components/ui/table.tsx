@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { Pagination } from "@/components/ui/pagination"
 
 const Table = React.forwardRef<
   HTMLTableElement,
@@ -104,6 +105,57 @@ const TableCaption = React.forwardRef<
 ))
 TableCaption.displayName = "TableCaption"
 
+// Paginated Table Component
+interface PaginatedTableProps extends React.HTMLAttributes<HTMLDivElement> {
+  data: any[]
+  currentPage: number
+  totalPages: number
+  totalItems: number
+  itemsPerPage: number
+  onPageChange: (page: number) => void
+  onItemsPerPageChange?: (itemsPerPage: number) => void
+  showItemsPerPageSelector?: boolean
+  itemsPerPageOptions?: number[]
+  children: React.ReactNode
+}
+
+const PaginatedTable = React.forwardRef<HTMLDivElement, PaginatedTableProps>(
+  ({
+    data,
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    onPageChange,
+    onItemsPerPageChange,
+    showItemsPerPageSelector = true,
+    itemsPerPageOptions = [10, 25, 50, 100],
+    children,
+    className,
+    ...props
+  }, ref) => {
+    return (
+      <div ref={ref} className={cn("space-y-4", className)} {...props}>
+        <div className="relative w-full overflow-auto">
+          {children}
+        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={onPageChange}
+          onItemsPerPageChange={onItemsPerPageChange}
+          showItemsPerPageSelector={showItemsPerPageSelector}
+          itemsPerPageOptions={itemsPerPageOptions}
+        />
+      </div>
+    )
+  }
+)
+
+PaginatedTable.displayName = "PaginatedTable"
+
 export {
   Table,
   TableHeader,
@@ -113,4 +165,5 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  PaginatedTable,
 }
