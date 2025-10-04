@@ -18,13 +18,14 @@ import { useSuppliersSimpleQuery, useCreateSupplier } from "@/app/api/suppliers"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, PaginatedTable } from "@/components/ui/table"
 import { Select } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/authContext"
 import { usePermissions } from "@/lib/usePermissions"
 import { notify, formatCurrency } from "@/lib/utils"
+import { usePagination } from "@/lib/usePagination"
 import EditPurchaseModal from "@/components/modal/purchases/EditPurchaseModal"
 import AddCategoryModal from "@/components/modal/purchases/AddCategoryModal"
 import AddSupplierModal from "@/components/modal/purchases/AddSupplierModal"
@@ -75,6 +76,7 @@ export default function PurchasesPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([] as any)
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
   const [mounted, setMounted] = useState(false)
+ const statusofProduct= products .filter((p: any) => p.status === 'active').length
 
   // Modal states
   // const [showAddProduct, setShowAddProduct] = useState(false)
@@ -97,6 +99,10 @@ export default function PurchasesPage() {
   const [sortBy, setSortBy] = useState("orderDate")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  
   // Category and supplier creation hooks
   const { mutateAsync: createCategory } = useCreateCategory()
   const { mutateAsync: createSupplier } = useCreateSupplier()
@@ -104,6 +110,51 @@ export default function PurchasesPage() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Filter and sort purchase orders
+  const filteredPurchaseOrders = (purchaseOrders as any[])
+    .filter((o: any) => {
+      const q = (searchTerm || '').toLowerCase()
+      const matchesSearch = !searchTerm || 
+        (o.productName || '').toLowerCase().includes(q) ||
+        (o.sku || '').toLowerCase().includes(q) ||
+        (o.invoiceNumber || '').toLowerCase().includes(q) ||
+        (o.categoryName || '').toLowerCase().includes(q)
+      
+      const matchesCategory = selectedCategory === 'all' || o.categoryName === selectedCategory
+      
+      // Low stock filter - check if quantity is low (assuming low means <= 5)
+      const matchesLowStock = !lowStockOnly || Number(o.quantity || 0) <= 5
+      
+      // Expiring soon filter - check if expiry date is within 30 days
+      const matchesExpiring = !expiringSoon || (() => {
+        if (!o.expiryDate) return false
+        const expiry = new Date(o.expiryDate)
+        const now = new Date()
+        const daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        return daysUntilExpiry <= 30 && daysUntilExpiry >= 0
+      })()
+      
+      return matchesSearch && matchesCategory && matchesLowStock && matchesExpiring
+    })
+    .sort((a: any, b: any) => {
+      let av = a[sortBy]
+      let bv = b[sortBy]
+      if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv || '').toLowerCase() }
+      if (sortOrder === 'asc') return av < bv ? -1 : av > bv ? 1 : 0
+      return av > bv ? -1 : av < bv ? 1 : 0
+    })
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPurchaseOrders.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedPurchaseOrders = filteredPurchaseOrders.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedCategory, lowStockOnly, expiringSoon])
 
   const getStockStatus = (p: any) => {
     const current = Number(p.currentStock ?? 0)
@@ -249,7 +300,7 @@ export default function PurchasesPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Purchases ({(purchaseOrders as any[]).length})</CardTitle>
+                  <CardTitle>Purchases ({filteredPurchaseOrders.length})</CardTitle>
                   <CardDescription>Manage purchases (create, update)</CardDescription>
                 </div>
                 <div className="flex gap-2">
@@ -305,57 +356,33 @@ export default function PurchasesPage() {
                   </Button>
                 </div>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Unit Price</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Invoice #</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(purchaseOrders as any[])
-                    .filter((o: any) => {
-                      const q = (searchTerm || '').toLowerCase()
-                      const matchesSearch = !searchTerm || 
-                        (o.productName || '').toLowerCase().includes(q) ||
-                        (o.sku || '').toLowerCase().includes(q) ||
-                        (o.invoiceNumber || '').toLowerCase().includes(q) ||
-                        (o.categoryName || '').toLowerCase().includes(q)
-                      
-                      const matchesCategory = selectedCategory === 'all' || o.categoryName === selectedCategory
-                      
-                      // Note: Purchase orders don't have status field like products, so filterStatus is not applicable
-                      // const matchesStatus = filterStatus === 'all' || o.status === filterStatus
-                      
-                      // Low stock filter - check if quantity is low (assuming low means <= 5)
-                      const matchesLowStock = !lowStockOnly || Number(o.quantity || 0) <= 5
-                      
-                      // Expiring soon filter - check if expiry date is within 30 days
-                      const matchesExpiring = !expiringSoon || (() => {
-                        if (!o.expiryDate) return false
-                        const expiry = new Date(o.expiryDate)
-                        const now = new Date()
-                        const daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-                        return daysUntilExpiry <= 30 && daysUntilExpiry >= 0
-                      })()
-                      
-                      return matchesSearch && matchesCategory && matchesLowStock && matchesExpiring
-                    })
-                    .sort((a: any, b: any) => {
-                      let av = a[sortBy]
-                      let bv = b[sortBy]
-                      if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv || '').toLowerCase() }
-                      if (sortOrder === 'asc') return av < bv ? -1 : av > bv ? 1 : 0
-                      return av > bv ? -1 : av < bv ? 1 : 0
-                    })
-                    .map((o: any) => {
+              <PaginatedTable
+                data={filteredPurchaseOrders}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredPurchaseOrders.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+                showItemsPerPageSelector={true}
+                itemsPerPageOptions={[5, 10, 25, 50]}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Unit Price</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedPurchaseOrders.map((o: any) => {
                       const total = Number(o.unitPrice || 0) * Number(o.quantity || 0)
                       return (
                         <TableRow key={o._id || o.id}>
@@ -380,8 +407,9 @@ export default function PurchasesPage() {
                         </TableRow>
                       )
                     })}
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
+              </PaginatedTable>
             </CardContent>
           </Card>
         </TabsContent>
