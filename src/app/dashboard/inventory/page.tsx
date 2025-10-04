@@ -19,12 +19,13 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, PaginatedTable } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/authContext"
 import { usePermissions } from "@/lib/usePermissions"
 import { useProductsQuery, useCategoriesQuery, useCreateCategory, useDeleteProduct } from "@/app/api/products"
 import { formatCurrency, notify, exportElementToPDF } from "@/lib/utils"
+import { usePagination } from "@/lib/usePagination"
 import StockAdjustmentModal from "@/components/modal/inventory/StockAdjustmentModal"
 import EditProductModal from "@/components/modal/purchases/EditProductModal"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -91,6 +92,10 @@ export default function InventoryPage() {
   const [filterMinStock, setFilterMinStock] = useState<string>("")
   const [filterMaxStock, setFilterMaxStock] = useState<string>("")
   const [stockStatusFilter, setStockStatusFilter] = useState<string>("all")
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   useEffect(() => {
     setMounted(true)
@@ -130,6 +135,17 @@ export default function InventoryPage() {
       return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
     }
   })
+
+  // Pagination logic
+  const totalPages = Math.ceil(sortedProducts.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedProducts = sortedProducts.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedCategory, filterStatus, lowStockOnly, expiringSoon, filterMinStock, filterMaxStock, stockStatusFilter])
 
   const getStockStatus = (p: any) => {
     const current = Number(p.currentStock ?? 0)
@@ -316,87 +332,99 @@ export default function InventoryPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Stock Movements ({products.length})</CardTitle>
+              <CardTitle>Stock Movements ({sortedProducts.length})</CardTitle>
               <CardDescription>Track all inventory movements and adjustments with product details</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table id="inventory-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product Details</TableHead>
-                    <TableHead>Row</TableHead>
-                    <TableHead>Current Stock</TableHead>
-                    <TableHead>Min Stock</TableHead>
-                    <TableHead>Max Stock</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(products as any[])
-                    .filter((movement: any) => {
-                      const minOk = filterMinStock === '' || Number(movement.minStock ?? 0) >= Number(filterMinStock)
-                      const maxOk = filterMaxStock === '' || Number(movement.maxStock ?? 0) <= Number(filterMaxStock)
-                      const status = getStockStatus(movement)
-                      const statusOk = stockStatusFilter === 'all' ||
-                        (stockStatusFilter === 'low' && status.text === 'Low Stock') ||
-                        (stockStatusFilter === 'high' && status.text === 'High Stock') ||
-                        (stockStatusFilter === 'normal' && status.text === 'Normal')
-                      return minOk && maxOk && statusOk
-                    })
-                    .map((movement: any) => {
-                    const stock = getStockStatus(movement)
-                    const expiry = getExpiryStatus(movement.expiryDate)
-                    return (
-                      <TableRow key={movement._id || movement.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{movement.name}</p>
-                            <p className="text-xs text-gray-500">SKU: {movement?.sku || '-'}</p>
-                            <p className="text-xs text-gray-400">Category: {movement?.category || '-'}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-mono text-sm">{movement.row}</p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="mt-1">
-                            <Badge variant="secondary" className="text-xs">
-                              Current Stock: {movement.currentStock || 0}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell className={Number(movement.minStock) > 0 ? "text-green-600" : "text-red-600"}>
-                            <p className="font-medium">{movement.minStock}</p>
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-medium">{movement.maxStock || '-'}</p>
-                          
-                      </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          <Badge variant={stock.color as any} className="text-xs">{stock.text}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm">{movement.expiryDate ? new Date(movement.expiryDate).toISOString().split('T')[0] : '-'}</span>
-                            <Badge variant={expiry.color as any} className="text-xs">{expiry.text}</Badge>
-                            {isAdmin && (
-                              <div className="flex items-center gap-1 ml-2">
-                                <Button size="sm" variant="outline" onClick={() => handleEditProduct(movement)}>
-                                  <PencilIcon className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleDeleteProduct((movement as any)._id || (movement as any).id)}>
-                                  <TrashIcon className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
+              <PaginatedTable
+                data={sortedProducts}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={sortedProducts.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+                showItemsPerPageSelector={true}
+                itemsPerPageOptions={[5, 10, 25, 50]}
+              >
+                <Table id="inventory-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product Details</TableHead>
+                      <TableHead>Row</TableHead>
+                      <TableHead>Current Stock</TableHead>
+                      <TableHead>Min Stock</TableHead>
+                      <TableHead>Max Stock</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Expiry Date</TableHead>
                     </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedProducts
+                      .filter((movement: any) => {
+                        const minOk = filterMinStock === '' || Number(movement.minStock ?? 0) >= Number(filterMinStock)
+                        const maxOk = filterMaxStock === '' || Number(movement.maxStock ?? 0) <= Number(filterMaxStock)
+                        const status = getStockStatus(movement)
+                        const statusOk = stockStatusFilter === 'all' ||
+                          (stockStatusFilter === 'low' && status.text === 'Low Stock') ||
+                          (stockStatusFilter === 'high' && status.text === 'High Stock') ||
+                          (stockStatusFilter === 'normal' && status.text === 'Normal')
+                        return minOk && maxOk && statusOk
+                      })
+                      .map((movement: any) => {
+                      const stock = getStockStatus(movement)
+                      const expiry = getExpiryStatus(movement.expiryDate)
+                      return (
+                        <TableRow key={movement._id || movement.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{movement.name}</p>
+                              <p className="text-xs text-gray-500">SKU: {movement?.sku || '-'}</p>
+                              <p className="text-xs text-gray-400">Category: {movement?.category || '-'}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <p className="font-mono text-sm">{movement.row}</p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="mt-1">
+                              <Badge variant="secondary" className="text-xs">
+                                Current Stock: {movement.currentStock || 0}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className={Number(movement.minStock) > 0 ? "text-green-600" : "text-red-600"}>
+                              <p className="font-medium">{movement.minStock}</p>
+                          </TableCell>
+                          <TableCell>
+                            <p className="font-medium">{movement.maxStock || '-'}</p>
+                            
+                        </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            <Badge variant={stock.color as any} className="text-xs">{stock.text}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm">{movement.expiryDate ? new Date(movement.expiryDate).toISOString().split('T')[0] : '-'}</span>
+                              <Badge variant={expiry.color as any} className="text-xs">{expiry.text}</Badge>
+                              {isAdmin && (
+                                <div className="flex items-center gap-1 ml-2">
+                                  <Button size="sm" variant="outline" onClick={() => handleEditProduct(movement)}>
+                                    <PencilIcon className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => handleDeleteProduct((movement as any)._id || (movement as any).id)}>
+                                    <TrashIcon className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                      </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </PaginatedTable>
             </CardContent>
           </Card>
         </TabsContent>
