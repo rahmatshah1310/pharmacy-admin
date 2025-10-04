@@ -27,7 +27,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Select } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, PaginatedTable } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useSuppliersQuery, useCreateSupplier as useCreateSupplierHook, useUpdateSupplier as useUpdateSupplierHook, useDeleteSupplier as useDeleteSupplierHook } from "@/app/api/suppliers"
 import { useForm } from "react-hook-form"
@@ -37,6 +37,7 @@ import { z } from "zod"
 import { formatCurrency, printElementById, exportElementToPDF } from "@/lib/utils"
 import { notify } from "@/lib/utils"
 import { useAuth } from "@/lib/authContext"
+import { usePagination } from "@/lib/usePagination"
 
 interface Supplier {
   id: string
@@ -78,6 +79,10 @@ export default function SuppliersPage() {
   const [showDeleteSupplier, setShowDeleteSupplier] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
   const [mounted, setMounted] = useState(false)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
   const { data: suppliers = [], isLoading } = useSuppliersQuery(true)
   const { mutateAsync: createSupplier, isPending: creating } = useCreateSupplierHook()
   const { mutateAsync: updateSupplier, isPending: updating } = useUpdateSupplierHook()
@@ -152,6 +157,17 @@ export default function SuppliersPage() {
       return aValue > bValue ? -1 : aValue < bValue ? 1 : 0
     }
   })
+
+  // Pagination logic
+  const totalPages = Math.ceil(sortedSuppliers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedSuppliers = sortedSuppliers.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedStatus, selectedCategory])
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -322,102 +338,114 @@ export default function SuppliersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table id="suppliers-table">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Payment Terms</TableHead>
-                <TableHead>Total Value</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedSuppliers.map((supplier: any) => (
-                <TableRow key={supplier._id || supplier.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <BuildingOfficeIcon className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">{supplier.companyName || supplier.name}</p>
-                        <p className="text-sm text-gray-500">{supplier.contactPerson?.firstName} {supplier.contactPerson?.lastName}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{supplier.email}</p>
-                      <p className="text-sm text-gray-500">{supplier.phone}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{supplier.paymentTerms?.paymentMethod || 'N/A'}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">Net {supplier.paymentTerms?.creditDays || 0} days</p>
-                      <p className="text-sm text-gray-500">Credit: {formatCurrency(supplier.paymentTerms?.creditLimit || 0)}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{formatCurrency(supplier.total || 0)}</p>
-                      <p className="text-sm text-gray-500">{supplier.totalOrders || 0} orders</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-600">{formatCurrency(0)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(supplier.status)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedSupplier(supplier)
-                          setShowViewSupplier(true)
-                        }}
-                      >
-                        <EyeIcon className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                       
-                        onClick={() => {
-                          setSelectedSupplier(supplier)
-                          setShowEditSupplier(true)
-                        }}
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                       
-                        onClick={() => {
-                          setSelectedSupplier(supplier)
-                          setShowDeleteSupplier(true)
-                        }}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <PaginatedTable
+            data={sortedSuppliers}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={sortedSuppliers.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={setItemsPerPage}
+            showItemsPerPageSelector={true}
+            itemsPerPageOptions={[5, 10, 25, 50]}
+          >
+            <Table id="suppliers-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Payment Terms</TableHead>
+                  <TableHead>Total Value</TableHead>
+                  <TableHead>Balance</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paginatedSuppliers.map((supplier: any) => (
+                  <TableRow key={supplier._id || supplier.id}>
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <BuildingOfficeIcon className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{supplier.companyName || supplier.name}</p>
+                          <p className="text-sm text-gray-500">{supplier.contactPerson?.firstName} {supplier.contactPerson?.lastName}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{supplier.email}</p>
+                        <p className="text-sm text-gray-500">{supplier.phone}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{supplier.paymentTerms?.paymentMethod || 'N/A'}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">Net {supplier.paymentTerms?.creditDays || 0} days</p>
+                        <p className="text-sm text-gray-500">Credit: {formatCurrency(supplier.paymentTerms?.creditLimit || 0)}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{formatCurrency(supplier.total || 0)}</p>
+                        <p className="text-sm text-gray-500">{supplier.totalOrders || 0} orders</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-gray-600">{formatCurrency(0)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(supplier.status)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedSupplier(supplier)
+                            setShowViewSupplier(true)
+                          }}
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                         
+                          onClick={() => {
+                            setSelectedSupplier(supplier)
+                            setShowEditSupplier(true)
+                          }}
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                         
+                          onClick={() => {
+                            setSelectedSupplier(supplier)
+                            setShowDeleteSupplier(true)
+                          }}
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </PaginatedTable>
         </CardContent>
       </Card>
 
