@@ -113,7 +113,7 @@ export const getProducts = async (params?: {
     const rows = snap.docs.map((d) => ({ _id: d.id, ...d.data() }));
     const { items, total, pages } = applyClientFilters(rows as any[], {
       search: params?.search,
-      searchKeys: ["name", "sku", "barcode", "supplier"],
+      searchKeys: ["name", "barcode", "supplier"],
       sortBy: params?.sortBy ?? "name",
       sortOrder: params?.sortOrder ?? "asc",
       page: params?.page ?? 1,
