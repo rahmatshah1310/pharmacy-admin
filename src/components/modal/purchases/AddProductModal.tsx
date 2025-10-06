@@ -30,7 +30,6 @@ export default function AddProductModal({
     defaultValues: {
       name: "",
       category: "",
-      sku: "",
       barcode: "",
       description: "",
       currentStock: 0,
@@ -39,8 +38,7 @@ export default function AddProductModal({
       unitPrice: 0,
       costPrice: 0,
       expiryDate: "",
-      batchNumber: "",
-      location: "",
+      row: "",
       status: "active",
     },
   })
@@ -56,10 +54,10 @@ export default function AddProductModal({
       notify.error('Category is required');
       return;
     }
-    if (!values.sku) {
-      notify.error('SKU is required');
-      return;
-    }
+    //   if (!values.sku) {
+    //   notify.error('SKU is required');
+    //   return;
+    // }
     // if (!values.supplier) {
     //   notify.error('Supplier is required');
     //   return;
@@ -68,7 +66,6 @@ export default function AddProductModal({
     try {
       await addPurchaseProduct({
         name: values.name,
-        sku: values.sku,
         category: values.category,
         barcode: values.barcode,
         description: values.description,
@@ -76,8 +73,6 @@ export default function AddProductModal({
         unitPrice: values.unitPrice,
         costPrice: values.costPrice,
         expiryDate: values.expiryDate || null,
-        batchNumber: values.batchNumber || null,
-        location: values.location || null,
         row: (values as any).row || null,
         status: values.status,
         invoiceNumber: null,
