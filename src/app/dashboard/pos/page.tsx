@@ -363,28 +363,28 @@ export default function POSPage() {
                     variant="outline"
                     onClick={() => applyDiscount(5)}
                   >
-                    5%
+                    6%
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => applyDiscount(10)}
                   >
-                    10%
+                    7%
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => applyDiscount(15)}
                   >
-                    15%
+                    8%
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => applyDiscount(20)}
                   >
-                    20%
+                    12%
                   </Button>
                 </div>
                 <Button
