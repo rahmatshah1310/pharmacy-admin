@@ -136,9 +136,9 @@ export default function ProductForm({
     if (!values.category || values.category.trim() === '') {
       errors.push('Category is required')
     }
-    if (!values.sku || values.sku.trim() === '') {
-      errors.push('SKU is required')
-    }
+    // if (!values.sku || values.sku.trim() === '') {
+    //   errors.push('SKU is required')
+    // }
     // if (!values.supplier || values.supplier.trim() === '') {
     //   errors.push('Supplier is required')
     // }
@@ -184,15 +184,7 @@ export default function ProductForm({
             <p className="text-xs text-red-600 mt-1">{form.formState.errors.name.message}</p>
           )}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            SKU <span className="text-red-500">*</span>
-          </label>
-          <Input placeholder="Enter SKU" {...form.register('sku')} />
-          {form.formState.errors.sku && (
-            <p className="text-xs text-red-600 mt-1">{form.formState.errors.sku.message}</p>
-          )}
-        </div>
+        
       </div>
       
       <div className="grid grid-cols-2 gap-4">
@@ -323,8 +315,6 @@ export default function ProductForm({
           </div>
         </div> */}
         <div className="grid grid-cols-2 gap-4">
-           <div><label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-           <Input placeholder="e.g., A1-B2" {...form.register('location')} /></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Row</label>
             <Input placeholder="Row number" {...form.register('row')} /></div>
         </div>
@@ -335,10 +325,7 @@ export default function ProductForm({
           <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
           <Input type="date" {...form.register('expiryDate')} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Batch Number</label>
-          <Input placeholder="Enter batch number" {...form.register('batchNumber')} />
-        </div>
+        
       </div>
       
       <div className="flex justify-end items-center">
