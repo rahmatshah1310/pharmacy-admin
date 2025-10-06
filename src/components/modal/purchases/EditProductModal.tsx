@@ -30,7 +30,6 @@ export default function EditProductModal({
     defaultValues: {
       name: "",
       category: "",
-      sku: "",
       barcode: "",
       description: "",
       currentStock: 0,
@@ -40,8 +39,6 @@ export default function EditProductModal({
       costPrice: 0,
       row: "",
       expiryDate: "",
-      batchNumber: "",
-      location: "",
       status: "active",
     },
   })
@@ -51,7 +48,6 @@ export default function EditProductModal({
       form.reset({
         name: product.name || "",
         category: product.category || "",
-        sku: product.sku || "",
         barcode: product.barcode || "",
         description: product.description || "",
         currentStock: Number(product.currentStock ?? 0),
@@ -61,8 +57,6 @@ export default function EditProductModal({
         costPrice: Number(product.costPrice ?? 0),
         row: product.row ?? "",
         expiryDate: product.expiryDate ? String(product.expiryDate).substring(0,10) : "",
-        batchNumber: product.batchNumber || "",
-        location: product.location || "",
         status: product.status || "active",
       })
     }
