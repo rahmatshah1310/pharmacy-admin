@@ -4,6 +4,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import CategoryCombobox from "@/components/ui/CategoryCombobox"
+import ProductCombobox from "@/components/ui/ProductCombobox"
+import { SingleFieldModal } from "@/components/modal/SingleFieldModal"
+import { useProductsQuery } from "@/app/api/products"
 import AddCategoryModal from "./AddCategoryModal"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
@@ -14,11 +17,9 @@ import { notify } from "@/lib/utils"
 
 type AddPurchaseForm = {
   productName: string
-  sku?: string
   quantity: number
   unitCost: number
   costPrice: number
-  batchNumber?: string
   expiryDate?: string
   invoiceNumber?: string
   orderDate: string
@@ -39,16 +40,18 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
   const [selectedCategory, setSelectedCategory] = useState<any>(null)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const { mutateAsync: addPurchase, isPending } = useAddPurchaseProduct()
+  const { data: products = [] } = useProductsQuery()
+  const [localProducts, setLocalProducts] = useState<any[]>(products || [])
+  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [showAddProductModal, setShowAddProductModal] = useState(false)
 
   const form = useForm<AddPurchaseForm>({
     resolver: zodResolver(
       purchaseSchema.pick({
         productName: true,
-        sku: true,
         quantity: true,
         unitCost: true,
         costPrice: true,
-        batchNumber: true,
         expiryDate: true,
         invoiceNumber: true,
         orderDate: true,
@@ -57,11 +60,9 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
     ),
     defaultValues: {
       productName: "",
-      sku: "",
       quantity: 1,
       unitCost: 0,
       costPrice: 0,
-      batchNumber: "",
       expiryDate: "",
       invoiceNumber: "",
       orderDate: new Date().toISOString().split("T")[0],
@@ -73,25 +74,20 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
 
   // keep local categories synced
   useEffect(() => { setLocalCategories(categories || []) }, [categories])
+  useEffect(() => { setLocalProducts(products || []) }, [products])
 
   const onSubmit = async (values: AddPurchaseForm) => {
     try {
-      if (!values.sku || String(values.sku).trim().length === 0) {
-        notify.error("SKU is required")
-        return
-      }
       if (!selectedCategory) {
         notify.error("Category is required")
         return
       }
       await addPurchase({
         name: values.productName,
-        sku: values.sku || "",
         category: selectedCategory.name || "",
         quantity: Number(values.quantity),
         unitPrice: Number(values.unitCost),
         costPrice: Number(values.costPrice),
-        batchNumber: values.batchNumber || null,
         expiryDate: values.expiryDate || null,
         invoiceNumber: values.invoiceNumber || null,
         orderDate: values.orderDate,
@@ -124,13 +120,24 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
 
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
-            <Input {...form.register("productName")} placeholder="Paracetamol" />
+            <ProductCombobox
+              products={(localProducts || []).map((p: any) => ({ _id: p._id || p.id, name: p.name, category: p.category }))}
+              selectedProduct={selectedProduct}
+              onProductSelect={(p) => {
+                setSelectedProduct(p)
+                const name = p?.name || ""
+                form.setValue("productName" as any, name)
+                if (p?.category) {
+                  setSelectedCategory((prev: any) => prev && prev.name === p.category ? prev : { _id: p.category, name: p.category })
+                }
+              }}
+              onAddProduct={() => setShowAddProductModal(true)}
+              label="Product"
+              placeholder="Search or select product"
+              required={true}
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-            <Input {...form.register("sku")} placeholder="SKU-123" />
-          </div>
+          
           <div className="grid grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
@@ -168,16 +175,11 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
               <Input type="date" {...form.register("receivedAt")} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Batch #</label>
-              <Input {...form.register("batchNumber")} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
               <Input type="date" {...form.register("expiryDate")} />
             </div>
           </div>
+
 
           {/* Supplier fields intentionally omitted/commented for now */}
           {/* <div className="grid grid-cols-2 gap-4">
@@ -210,6 +212,28 @@ export default function AddPurchaseModal({ open, onOpenChange, categories = [], 
           }}
         />
       )}
+      <SingleFieldModal
+        open={showAddProductModal}
+        onOpenChange={setShowAddProductModal}
+        title="Add Product"
+        label="Product Name"
+        placeholder="e.g., Paracetamol 500mg"
+        confirmText="Add"
+        onConfirm={async (val: string) => {
+          const exists = (localProducts || []).find((p: any) => String(p.name || '').toLowerCase() === val.toLowerCase())
+          if (exists) {
+            setSelectedProduct({ _id: exists._id || exists.id, name: exists.name, category: exists.category })
+            form.setValue("productName" as any, exists.name)
+            notify.success("Product selected")
+            return
+          }
+          const newProduct = { _id: val, name: val }
+          setLocalProducts((prev: any[]) => [newProduct, ...prev])
+          setSelectedProduct(newProduct)
+          form.setValue("productName" as any, val)
+          notify.success("Product added")
+        }}
+      />
     </Dialog>
   )
 }
