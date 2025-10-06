@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, PaginatedTable } from "@/components/ui/table"
 import { useSettingsQuery, useUpdateSettings } from "@/app/api/settings"
 import { useUpdateUser, useDeleteUser } from "@/app/api/users"
 import { useAllUsers } from "@/app/api/authApi"
 import { usePharmacyByAdminUid, useUpdatePharmacy } from "@/app/api/pharmacy"
 import { useAuth } from "@/lib/authContext"
 import { usePermissions } from "@/lib/usePermissions"
+import { usePagination } from "@/lib/usePagination"
 import { settingsSchema, type SettingsSchema } from "@/lib/schemas"
 import { toast } from "react-toastify"
 import EditUserModal from "@/components/modal/settings/EditUserModal"
@@ -35,8 +37,23 @@ export default function SettingsPage() {
   const { data: pharmacy } = usePharmacyByAdminUid(adminId || null)
   const { mutateAsync: updatePharmacy } = useUpdatePharmacy()
 
+  // User mutation hooks
+  const { mutateAsync: updateUser, isPending: updatingUser } = useUpdateUser()
+  const { mutateAsync: deleteUser, isPending: deletingUser } = useDeleteUser()
+
+  // Local UI state
+  const [showEditUser, setShowEditUser] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [showCurrentUser, setShowCurrentUser] = useState(false)
+  const [showDeleteUser, setShowDeleteUser] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<any>(null)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
   // Filter users: show users and admins within current pharmacy; exclude current admin
-  const users = (() => {
+  const filteredUsers = (() => {
     try {
       const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}")
       const currentAdminUid = adminInfo.uid
@@ -54,16 +71,11 @@ export default function SettingsPage() {
     }
   })()
 
-  // User mutation hooks
-  const { mutateAsync: updateUser, isPending: updatingUser } = useUpdateUser()
-  const { mutateAsync: deleteUser, isPending: deletingUser } = useDeleteUser()
-
-  // Local UI state
-  const [showEditUser, setShowEditUser] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<any>(null)
-  const [showCurrentUser, setShowCurrentUser] = useState(false)
-  const [showDeleteUser, setShowDeleteUser] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<any>(null)
+  // Pagination logic
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex)
 
   const form = useForm<SettingsSchema>({
     resolver: zodResolver(settingsSchema),
@@ -174,12 +186,12 @@ export default function SettingsPage() {
               </div>
               <div className="text-sm text-gray-600">
                 {isSuperAdmin
-                  ? `Showing ${users.length} user(s) and admin(s) - Super Admin View`
+                  ? `Showing ${filteredUsers.length} user(s) and admin(s) - Super Admin View`
                   : (() => {
                       try {
                         const adminInfo = JSON.parse(window.localStorage.getItem("pc_admin_info") || "{}")
                         if (adminInfo.uid) {
-                          return `Showing ${users.length} user(s) from ${user?.pharmacyName}`
+                          return `Showing ${filteredUsers.length} user(s) from ${user?.pharmacyName}`
                         }
                         return "No admin context found - Please log in as admin to manage users"
                       } catch {
@@ -190,73 +202,81 @@ export default function SettingsPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead>
-                    <tr>
-                      <th className="px-3 py-2 text-left">Name</th>
-                      <th className="px-3 py-2 text-left">Email</th>
-                      <th className="px-3 py-2 text-left">Role</th>
-                      <th className="px-3 py-2 text-left">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {users.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-3 py-8 text-center text-gray-500">
+              <PaginatedTable
+                data={filteredUsers}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredUsers.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+                showItemsPerPageSelector={true}
+                itemsPerPageOptions={[5, 10, 25, 50]}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-gray-500">
                           No users found for your pharmacy. Create users through the signup page.
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ) : (
-                      (users as any[])
-                        .filter((u: any) => u.role == "admin"||u.role == "user" && u.role !== "super-admin")
-                        .map((u) => (
-                          <tr key={u._id}>
-                            <td className="px-3 py-2">{u.name || "-"}</td>
-                            <td className="px-3 py-2">{u.email}</td>
-                            <td className="px-3 py-2">{u.role}</td>
-                            <td className="px-3 py-2">
-                              <div className="flex gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedUser(u)
-                                    setShowEditUser(true)
-                                  }}
-                                >
-                                  Edit
-                                </Button>
+                      paginatedUsers.map((u) => (
+                        <TableRow key={u._id}>
+                          <TableCell>{u.name || "-"}</TableCell>
+                          <TableCell>{u.email}</TableCell>
+                          <TableCell>{u.role}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUser(u)
+                                  setShowEditUser(true)
+                                }}
+                              >
+                                Edit
+                              </Button>
 
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={deletingUser || (!!user && user.uid === u._id)}
-                                  onClick={() => {
-                                    if (user && user.uid === u._id) {
-                                      toast.error("You cannot delete your own account.")
-                                      return
-                                    }
-                                    if (u.role === "admin" || u.role === "super-admin") {
-                                      toast.error("Cannot delete admin users.")
-                                      return
-                                    }
-                                    setUserToDelete(u)
-                                    setShowDeleteUser(true)
-                                  }}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                disabled={deletingUser || (!!user && user.uid === u._id)}
+                                onClick={() => {
+                                  if (user && user.uid === u._id) {
+                                    toast.error("You cannot delete your own account.")
+                                    return
+                                  }
+                                  if (u.role === "admin" || u.role === "super-admin") {
+                                    toast.error("Cannot delete admin users.")
+                                    return
+                                  }
+                                  setUserToDelete(u)
+                                  setShowDeleteUser(true)
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                </Table>
+              </PaginatedTable>
             </CardContent>
           </Card>
         )}
