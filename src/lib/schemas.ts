@@ -80,7 +80,6 @@ export type SupplierSchema = z.infer<typeof supplierSchema>;
 export const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
   category: z.string().min(1, "Category is required"),
-  sku: z.string().min(1, "SKU is required"),
   barcode: z.string().optional(),
   description: z.string().optional(),
   currentStock: z.number().min(0),
@@ -90,17 +89,14 @@ export const productSchema = z.object({
   costPrice: z.number().min(0),
   // supplier: z.string().min(1, "Supplier is required"),
   expiryDate: z.string().optional(),
-  batchNumber: z.string().optional(),
   // Physical placement metadata
   row: z.string().optional(),
-  location: z.string().optional(),
   status: z.enum(["active", "inactive", "discontinued"]),
 });
 
 export const purchaseSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),   // link to product
   productName: z.string().min(1, "Product name is required"),
-  sku: z.string().optional(),
   quantity: z.number().min(1, "Quantity must be greater than 0"),
 
   unitCost: z.number().min(0, "Unit cost is required"),     // how much you pay supplier
@@ -108,7 +104,6 @@ export const purchaseSchema = z.object({
   totalCost: z.number().min(0),                             // qty * unitCost
 
   // Batch & Expiry
-  batchNumber: z.string().optional(),
   expiryDate: z.string().optional(),
 
   // Category (for first-time product creation convenience)
