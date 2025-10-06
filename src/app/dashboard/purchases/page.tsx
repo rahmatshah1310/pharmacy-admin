@@ -117,7 +117,7 @@ export default function PurchasesPage() {
       const q = (searchTerm || '').toLowerCase()
       const matchesSearch = !searchTerm || 
         (o.productName || '').toLowerCase().includes(q) ||
-        (o.sku || '').toLowerCase().includes(q) ||
+        // (o.sku || '').toLowerCase().includes(q) ||
         (o.invoiceNumber || '').toLowerCase().includes(q) ||
         (o.categoryName || '').toLowerCase().includes(q)
       
@@ -322,7 +322,7 @@ export default function PurchasesPage() {
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
                       className="pl-10 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none"
-                      placeholder="Search purchases by product, SKU, invoice, or category..."
+                      placeholder="Search purchases by product, invoice, or category..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -346,7 +346,7 @@ export default function PurchasesPage() {
                   <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                     <option value="productName">Sort by Product</option>
                     <option value="unitPrice">Sort by Unit Price</option>
-                    <option value="sku">Sort by SKU</option>
+                      {/* <option value="sku">Sort by SKU</option> */}
                     <option value="orderDate">Sort by Date</option>
                     <option value="quantity">Sort by Quantity</option>
                     <option value="expiryDate">Sort by Expiry</option>
@@ -372,7 +372,7 @@ export default function PurchasesPage() {
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Product</TableHead>
-                      <TableHead>SKU</TableHead>
+                      {/* <TableHead>SKU</TableHead> */}
                       <TableHead>Qty</TableHead>
                       <TableHead>Unit Price</TableHead>
                       <TableHead>Total</TableHead>
@@ -388,7 +388,7 @@ export default function PurchasesPage() {
                         <TableRow key={o._id || o.id}>
                           <TableCell>{o.orderDate ? String(o.orderDate).slice(0,10) : '-'}</TableCell>
                           <TableCell>{o.productName || '-'}</TableCell>
-                          <TableCell>{o.sku || '-'}</TableCell>
+                          {/* <TableCell>{o.sku || '-'}</TableCell> */}
                           <TableCell>{o.quantity ?? '-'}</TableCell>
                           <TableCell>{formatCurrency(o.unitPrice || 0)}</TableCell>
                           <TableCell>{formatCurrency(total)}</TableCell>
