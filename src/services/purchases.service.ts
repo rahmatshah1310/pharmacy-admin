@@ -174,7 +174,6 @@ export const createPurchaseOrder = async (data: any) => {
  */
 export const createOrIncrementProductWithPurchase = async (payload: {
   name: string;
-  sku: string;
   category: string;
   barcode?: string;
   description?: string;
@@ -197,14 +196,14 @@ export const createOrIncrementProductWithPurchase = async (payload: {
     const purchasesCol = firestore.collection(firestore.db, "purchases");
     const { createdBy, adminId, pharmacyId } = getTenantMeta();
 
-    if (!payload?.sku || !payload?.name) throw new ApiError(400, "Product name and SKU are required");
+    if (!payload?.name) throw new ApiError(400, "Product name is required");
     const quantity = Number(payload.quantity || 0);
     if (quantity <= 0) throw new ApiError(400, "Quantity must be greater than 0");
 
-    // Find existing product (by SKU scoped to pharmacy)
+    // Find existing product (by NAME scoped to pharmacy)
     const q = pharmacyId
-      ? firestore.fbQuery(productsCol, firestore.where("pharmacyId", "==", pharmacyId), firestore.where("sku", "==", payload.sku))
-      : firestore.fbQuery(productsCol, firestore.where("sku", "==", payload.sku));
+      ? firestore.fbQuery(productsCol, firestore.where("pharmacyId", "==", pharmacyId), firestore.where("name", "==", payload.name))
+      : firestore.fbQuery(productsCol, firestore.where("name", "==", payload.name));
     const existingSnap = await firestore.getDocs(q);
     const existingDoc = existingSnap.docs[0] ?? null;
 
@@ -237,7 +236,7 @@ export const createOrIncrementProductWithPurchase = async (payload: {
         productId = newRef.id;
         tx.set(newRef as any, {
           name: payload.name,
-          sku: payload.sku,
+          sku: (payload as any).sku ?? "",
           category: payload.category || payload.categoryName || "",
           barcode: payload.barcode ?? "",
           description: payload.description ?? "",
@@ -264,7 +263,6 @@ export const createOrIncrementProductWithPurchase = async (payload: {
       const purchaseData: any = {
         productId,
         productName: payload.name,
-        sku: payload.sku,
         quantity,
         unitPrice: Number(payload.unitPrice ?? payload.costPrice ?? 0),
         costPrice: Number(payload.costPrice ?? 0),
