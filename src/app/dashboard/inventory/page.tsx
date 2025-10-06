@@ -35,7 +35,6 @@ interface Product {
   id: string
   name: string
   category: string
-  sku: string
   barcode: string
   description: string
   currentStock: number
@@ -45,8 +44,6 @@ interface Product {
   costPrice: number
   supplier: string
   expiryDate: string
-  batchNumber: string
-  location: string
   status: 'active' | 'inactive' | 'discontinued'
   lastUpdated: string
   totalValue: number
@@ -106,11 +103,10 @@ export default function InventoryPage() {
 
   const filteredProducts = (products as any[]).filter(product => {
     const name = String(product?.name || "").toLowerCase()
-    const sku = String(product?.sku || "").toLowerCase()
     const supplier = String(product?.supplier || "").toLowerCase()
     const barcode = String(product?.barcode || "")
     const q = (searchTerm || "").toLowerCase()
-    const matchesSearch = name.includes(q) || sku.includes(q) || barcode.includes(searchTerm || "") || supplier.includes(q)
+    const matchesSearch = name.includes(q) || barcode.includes(searchTerm || "") || supplier.includes(q)
     
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
     const matchesStatus = filterStatus === "all" || product.status === filterStatus
@@ -379,7 +375,7 @@ export default function InventoryPage() {
                           <TableCell>
                             <div>
                               <p className="font-medium">{movement.name}</p>
-                              <p className="text-xs text-gray-500">SKU: {movement?.sku || '-'}</p>
+                              {/* <p className="text-xs text-gray-500">SKU: {movement?.sku || '-'}</p> */}
                               <p className="text-xs text-gray-400">Category: {movement?.category || '-'}</p>
                             </div>
                           </TableCell>
@@ -443,7 +439,7 @@ export default function InventoryPage() {
                     <div key={product.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
                       <div>
                         <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-gray-600">{product.sku}</p>
+                        {/* <p className="text-sm text-gray-600">{product.sku}</p> */}
                       </div>
                       <div className="text-right">
                         <p className="text-red-600 font-semibold">{product.currentStock}</p>
@@ -470,7 +466,7 @@ export default function InventoryPage() {
                     <div key={product.id || product._id} className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                       <div>
                         <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-gray-600">{product.sku}</p>
+                        {/* <p className="text-sm text-gray-600">{product.sku}</p> */}  
                       </div>
                       <div className="text-right">
                         <p className="text-orange-600 font-semibold">
