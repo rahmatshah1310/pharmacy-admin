@@ -159,7 +159,11 @@ export default function InventoryPage() {
     const now = new Date()
     const days = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     if (days < 0) return { color: 'destructive', text: 'Expired' }
-    if (days <= 30) return { color: 'warning', text: `${days} days` }
+    if (days <= 30) {
+      const label = days === 1 ? 'day' : 'days'
+      return { color: 'warning', text: `${days} ${label}` }
+    }
+    // if (days <= 30) return { color: 'warning', text: `${days} days` }
     return { color: 'success', text: 'Good' }
   }
 
