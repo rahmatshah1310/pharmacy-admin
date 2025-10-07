@@ -17,6 +17,7 @@ import Link from "next/link"
 export default function LoginPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const[redirecting, setRedirecting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const { mutateAsync: login, isPending } = useLogin()
   const { register, handleSubmit, formState: { errors } } = useForm<LoginSchema>({
@@ -29,6 +30,8 @@ export default function LoginPage() {
       await login({ email: values.email, password: values.password })
       notify.success("Signed in successfully")
       router.push("/")
+      setRedirecting(true) 
+      router.replace("/dashboard")
     } catch (err: any) {
       notify.error(err?.message || "Failed to sign in")
     }
@@ -40,10 +43,17 @@ export default function LoginPage() {
   useEffect(() => {
     if (loading) return; // wait until auth finishes
     if (user) {
+      setRedirecting(true)
       router.replace("/dashboard")
     }
   }, [user, loading, router])
-  
+  if (redirecting) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
